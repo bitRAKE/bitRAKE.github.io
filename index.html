@@ -3,14 +3,8 @@
 <head>
 <meta charset="utf-8">
 <link rel="icon" type="image/png" href="favicon.png">
+<link rel="stylesheet" href="styles.css">
 <title>bitRAKE - Nothing here.</title>
-<style>
-body {
-	/* need a way to easily match code/diagram themes */
-	background-color: #B4A4DB;
-	color: #48240A;
-}
-</style>
 </head>
 <body>
 <div class="mermaid">
@@ -56,44 +50,10 @@ import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10.1.0/+esm'
 let config = {
 	theme:'retro',
 	securityLevel:'loose',
-	logLevel:'fatal',
 	startOnLoad:true,
 	useMaxWidth:true,
-	arrowMarkerAbsolute:false,
-	flowchart:{
-		useMaxWidth:true,
-		htmlLabels:true,
-		curve:'cardinal',
-	},
-	sequence:{
-		useMaxWidth:true,
-		diagramMarginX:50,
-		diagramMarginY:10,
-		actorMargin:50,
-		width:150,
-		height:65,
-		boxMargin:10,
-		boxTextMargin:5,
-		noteMargin:10,
-		messageMargin:35,
-		mirrorActors:true,
-		bottomMarginAdj:1,
-		rightAngles:false,
-		showSequenceNumbers:false,
-	},
-	gantt:{
-		useMaxWidth:true,
-		titleTopMargin:25,
-		barHeight:20,
-		barGap:4,
-		topPadding:50,
-		leftPadding:75,
-		gridLineStartPadding:35,
-		fontSize:11,
-		fontFamily:'"Open-Sans", "sans-serif"',
-		numberSectionStyles:4,
-		axisFormat:'%Y-%m-%d',
-	}
+	htmlLabels:true,
+	curve:'cardinal'
 };
 mermaid.initialize(config);
 </script>

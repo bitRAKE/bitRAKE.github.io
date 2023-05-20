@@ -1,0 +1,13 @@
+body {
+	/* need a way to easily match code/diagram themes */
+	background-color: #B4A4DB;
+	color: #48240A;
+}
+svg {
+	overflow: auto !important;
+	display: block;
+	width: 100%;
+	max-width: 100%
+	margin-left: auto;
+	margin-right: auto;
+}
