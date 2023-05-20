@@ -4,10 +4,26 @@ body {
 	color: #48240A;
 }
 .mermaid {
+	margin-left: 0 !important;
 	text-align: center;
+	resize:both;
+	overflow:auto;
+	margin-bottom: 2px;
+	position:relative;
+	max-height: auto;
+	max-width: 100%;
+}
+.mermaid::after {
+	content:'';
+	display:block;
+	width:10px;
+	height:10px;
+	background-color:yellowgreen;
+	position:absolute;
+	right:0;
+	bottom:0;
 }
 .mermaid svg {
-	width: 150%;
-	max-width: 150%;
+	max-width: 100%;
 	height: auto;
 }
