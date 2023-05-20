@@ -41,9 +41,13 @@ graph LR
 
 <a href="https://bitRAKE.github.io/index.xml" title="RSS">Feed</a>
 <a href="https://bitRAKE.github.io/">Rickey Bowers Jr.</a>
+<!--
+	for configuration description and default:
+	https://github.com/mermaidjs/mermaidjs.github.io/blob/master/mermaidAPI.md
+-->
 <script type="module">
 import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10.1.0/+esm'
-let config = { startOnLoad: true, flowchart: { useMaxWidth: false, htmlLabels: true } };
+let config = { flowchart: { securityLevel: 'loose', "theme": "forest" } };
 mermaid.initialize(config);
 </script>
 </body>
