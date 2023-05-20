@@ -3,11 +3,10 @@ body {
 	background-color: #B4A4DB;
 	color: #48240A;
 }
-svg {
-	overflow: auto !important;
-	display: block;
-	width: 100%;
-	max-width: 100%
-	margin-left: auto;
-	margin-right: auto;
+.mermaid {
+	text-align: center;
+}
+.mermaid svg {
+	max-width: 100%;
+	height: auto;
 }
