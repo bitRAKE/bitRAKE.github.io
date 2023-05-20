@@ -10,11 +10,6 @@ body {
 	background-color: #B4A4DB;
 	color: #48240A;
 }
-svg {
-	overflow:auto !important;
-	margin-left:auto;
-	margin-right:auto;
-}
 </style>
 </head>
 <body>
@@ -65,10 +60,12 @@ let config = {
 	startOnLoad:true,
 	arrowMarkerAbsolute:false,
 	flowchart:{
+		useMaxWidth:true,
 		htmlLabels:true,
-		curve:'basis',
+		curve:'cardinal',
 	},
 	sequence:{
+		useMaxWidth:true,
 		diagramMarginX:50,
 		diagramMarginY:10,
 		actorMargin:50,
@@ -80,7 +77,6 @@ let config = {
 		messageMargin:35,
 		mirrorActors:true,
 		bottomMarginAdj:1,
-		useMaxWidth:true,
 		rightAngles:false,
 		showSequenceNumbers:false,
 	},
