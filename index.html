@@ -2,12 +2,49 @@
 <html lang="en-US">
 <head>
 <meta charset="utf-8">
-<link rel="icon" type="image/gif" href="favicon.gif">
+<link rel="icon" type="image/png" href="favicon.png">
 </head>
 <body>
 Nothing here.
 
+<div class="mermaid">
+graph LR
+	classDef start color:green,stroke-dasharray: 2
+	classDef stop color:red,stroke-dasharray: 2
+
+	start(((start))):::start --> q0
+	%% these states track the modulus of the number
+	subgraph "Divide by Three "
+		q0 -. 0 .-> q0((q0))
+		q0 -- 1 --> q1((q1))
+		q1 -. 0 .-> q2((q2))
+		q1 -- 1 --> q0
+		q2 -. 0 .-> q2
+		q2 -- 1 --> q1
+	end
+	%% only a remainder of zero indicates divisible by three
+	q0 --> |"input end"| q3[accept]:::stop
+	q1 --> |"input end"| q4[reject]:::stop
+	q2 --> |"input end"| q4
+
+	linkStyle 0 stroke:green;
+
+	linkStyle 2 stroke:black;
+	linkStyle 4 stroke:black;
+	linkStyle 6 stroke:black;
+
+	linkStyle 7 stroke:darkred;
+	linkStyle 8 stroke:darkred;
+	linkStyle 9 stroke:darkred;
+</div>
+
+
 <a href="https://bitRAKE.github.io/index.xml" title="RSS">Feed</a>
 <a href="https://bitRAKE.github.io/">Rickey Bowers Jr.</a>
+<script type="module">
+import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10.1.0/+esm'
+let config = { startOnLoad: true, flowchart: { useMaxWidth: false, htmlLabels: true } };
+mermaid.initialize(config);
+</script>
 </body>
 </html>
