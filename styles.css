@@ -3,7 +3,7 @@ body {
 	background-color: #B4A4DB;
 	color: #48240A;
 }
-.mermaid {
+div.mermaid {
 	margin-left: 0 !important;
 	text-align: center;
 	resize:both;
@@ -13,7 +13,7 @@ body {
 	max-height: auto;
 	max-width: 100%;
 }
-.mermaid::after {
+div.mermaid::after {
 	content:'';
 	display:block;
 	width:10px;
