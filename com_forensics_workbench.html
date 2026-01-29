@@ -1,0 +1,1199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>COM/IDL Interface Forensics Workbench Pro</title>
+    <style>
+        :root {
+            --bg-dark: #0a0a0f;
+            --bg-panel: #13131f;
+            --bg-hover: #1a1a2e;
+            --accent: #00f0ff;
+            --danger: #ff004c;
+            --warning: #ffcc00;
+            --success: #00ff9d;
+            --text: #e0e0ff;
+            --text-muted: #6c6c8a;
+            --border: #2a2a3f;
+            --scrollbar: #3a3a5f;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'JetBrains Mono', 'Consolas', monospace;
+        }
+        
+        html, body {
+            height: 100vh;
+            overflow: hidden;
+            background: var(--bg-dark);
+            color: var(--text);
+        }
+        
+        /* Header - Fixed height */
+        .header {
+            height: 60px;
+            background: linear-gradient(90deg, var(--bg-panel) 0%, #1a1a2e 100%);
+            border-bottom: 2px solid var(--accent);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 2rem;
+            flex-shrink: 0;
+            box-shadow: 0 0 20px rgba(0, 240, 255, 0.1);
+            z-index: 100;
+        }
+        
+        .header h1 {
+            font-size: 1.3rem;
+            background: linear-gradient(90deg, var(--accent), #0080ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        
+        /* Main Container */
+        .container {
+            display: flex;
+            height: calc(100vh - 60px);
+            overflow: hidden;
+        }
+        
+        /* Sidebar - Fixed width, scrollable independently */
+        .sidebar {
+            width: 320px;
+            background: var(--bg-panel);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+        
+        .sidebar-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1rem;
+        }
+        
+        .panel {
+            background: rgba(0,0,0,0.3);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            flex-shrink: 0;
+        }
+        
+        /* Main Editor Area - Flex column with proper constraints */
+        .main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            min-width: 0; /* Critical for flex children */
+        }
+        
+        /* Editor Container - Takes remaining space */
+        .workspace {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            min-height: 0;
+        }
+        
+        .editor-split {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1px;
+            background: var(--border);
+            overflow: hidden;
+            min-height: 0;
+        }
+        
+        .editor-pane {
+            background: var(--bg-panel);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            min-height: 0;
+        }
+        
+        .pane-header {
+            background: rgba(0,0,0,0.3);
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+        }
+        
+        /* Input Area - Scrollable */
+        .input-area {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            min-height: 0;
+        }
+        
+        textarea {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #0f0f1a;
+            color: var(--text);
+            border: none;
+            padding: 1rem;
+            resize: none;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            line-height: 1.5;
+            tab-size: 4;
+            outline: none;
+        }
+        
+        textarea:focus {
+            background: #121220;
+        }
+        
+        /* Tree View - Properly constrained scrolling */
+        .tree-container {
+            flex: 1;
+            overflow: auto;
+            position: relative;
+            min-height: 0;
+            contain: strict; /* Performance optimization */
+        }
+        
+        .forensic-tree {
+            padding: 1rem;
+            min-height: min-content;
+        }
+        
+        /* Bottom Panel - Fixed height, never pushed out */
+        .details-panel {
+            height: 280px;
+            flex-shrink: 0;
+            background: var(--bg-panel);
+            border-top: 2px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        .details-toolbar {
+            display: flex;
+            gap: 0.5rem;
+            padding: 0.5rem;
+            background: rgba(0,0,0,0.2);
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .details-content {
+            flex: 1;
+            overflow: auto;
+            padding: 1rem;
+            font-family: monospace;
+            font-size: 13px;
+            background: rgba(0,0,0,0.2);
+        }
+        
+        /* Tree Nodes */
+        .tree-item {
+            margin-left: 16px;
+            border-left: 1px solid var(--border);
+            padding-left: 8px;
+            position: relative;
+        }
+        
+        .tree-item::before {
+            content: '';
+            position: absolute;
+            left: -1px;
+            top: 0;
+            width: 8px;
+            height: 1px;
+            background: var(--border);
+        }
+        
+        .tree-node {
+            background: rgba(0, 240, 255, 0.05);
+            border: 1px solid rgba(0, 240, 255, 0.2);
+            padding: 0.5rem 0.75rem;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.9rem;
+            margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+        
+        .tree-node:hover {
+            background: rgba(0, 240, 255, 0.1);
+            border-color: var(--accent);
+            transform: translateX(3px);
+        }
+        
+        .tree-node.interface { border-color: var(--accent); }
+        .tree-node.coclass { border-color: var(--warning); }
+        .tree-node.method { 
+            border-color: rgba(0, 255, 157, 0.3); 
+            font-size: 0.85rem;
+            padding: 0.3rem 0.6rem;
+        }
+        .tree-node.dangerous { 
+            border-color: var(--danger); 
+            background: rgba(255, 0, 76, 0.1);
+            animation: pulse 3s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { box-shadow: 0 0 0 rgba(255, 0, 76, 0); }
+            50% { box-shadow: 0 0 10px rgba(255, 0, 76, 0.3); }
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        
+        .badge-iid { background: rgba(0, 240, 255, 0.2); color: var(--accent); }
+        .badge-disp { background: rgba(255, 204, 0, 0.2); color: var(--warning); }
+        .badge-danger { background: rgba(255, 0, 76, 0.2); color: var(--danger); }
+        
+        /* Metrics */
+        .metric {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            font-size: 0.9rem;
+        }
+        
+        .metric:last-child { border-bottom: none; }
+        .metric-value { font-weight: bold; color: var(--accent); }
+        .risk-high { color: var(--danger); }
+        .risk-medium { color: var(--warning); }
+        .risk-low { color: var(--success); }
+        
+        /* Buttons */
+        button {
+            background: linear-gradient(135deg, var(--accent), #0080ff);
+            color: var(--bg-dark);
+            border: none;
+            padding: 0.5rem 1.5rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-size: 0.85rem;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+        
+        button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 240, 255, 0.4);
+        }
+        
+        button.secondary {
+            background: rgba(255,255,255,0.1);
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+        
+        button.secondary:hover {
+            background: rgba(255,255,255,0.15);
+        }
+        
+        button.active {
+            background: var(--accent);
+            color: var(--bg-dark);
+        }
+        
+        /* Scrollbar Styling */
+        ::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: var(--bg-dark);
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: var(--scrollbar);
+            border-radius: 5px;
+            border: 2px solid var(--bg-dark);
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--accent);
+        }
+        
+        /* Loading State */
+        .loading-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(10,10,15,0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 50;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+        }
+        
+        .loading-overlay.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+        
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin { to { transform: rotate(360deg); } }
+        
+        /* VTable Grid */
+        .vtable-grid {
+            display: grid;
+            grid-template-columns: 60px 200px 1fr;
+            gap: 1px;
+            background: var(--border);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        
+        .vtable-cell {
+            background: var(--bg-panel);
+            padding: 0.5rem;
+            font-size: 0.85rem;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        
+        .vtable-header {
+            background: rgba(0,0,0,0.3);
+            color: var(--accent);
+            font-weight: bold;
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            letter-spacing: 1px;
+        }
+        
+        /* Virtual List Optimization */
+        .virtual-list {
+            position: relative;
+        }
+        
+        .tree-placeholder {
+            text-align: center;
+            padding: 3rem;
+            color: var(--text-muted);
+            font-style: italic;
+        }
+        
+        .collapsed { display: none; }
+        
+        .toggle-icon {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            margin-right: 6px;
+            cursor: pointer;
+            text-align: center;
+            line-height: 12px;
+            font-size: 10px;
+            color: var(--text-muted);
+        }
+        
+        .toggle-icon:hover { color: var(--accent); }
+        
+        /* Search Box */
+        .search-box {
+            width: 100%;
+            background: rgba(0,0,0,0.3);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 0.5rem;
+            border-radius: 4px;
+            margin-bottom: 1rem;
+            font-family: inherit;
+        }
+        
+        .search-box:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+        
+        /* Empty State */
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: var(--text-muted);
+            text-align: center;
+            padding: 2rem;
+        }
+        
+        .empty-state-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🔍 COM/IDL Forensics Workbench Pro</h1>
+        <div style="display: flex; gap: 1rem; align-items: center;">
+            <span id="file-info" style="font-size: 0.85rem; color: var(--text-muted);"></span>
+            <button onclick="analyzeIDL()">Analyze IDL</button>
+            <button onclick="generateReport()" class="secondary">Export Report</button>
+        </div>
+    </div>
+    
+    <div class="container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-content">
+                <div class="panel">
+                    <div style="font-size: 0.85rem; color: var(--accent); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.5rem;">
+                        ⚠️ Risk Assessment
+                    </div>
+                    <div class="metric">
+                        <span>Overall Risk</span>
+                        <span class="metric-value risk-high" id="risk-score">Unknown</span>
+                    </div>
+                    <div class="metric">
+                        <span>Attack Surface</span>
+                        <span class="metric-value" id="attack-surface">0</span>
+                    </div>
+                    <div class="metric">
+                        <span>Scriptable Interfaces</span>
+                        <span class="metric-value" id="scriptable-count">0</span>
+                    </div>
+                    <div class="metric">
+                        <span>Hidden Objects</span>
+                        <span class="metric-value risk-medium" id="hidden-count">0</span>
+                    </div>
+                    <div class="metric">
+                        <span>Dangerous Methods</span>
+                        <span class="metric-value risk-high" id="danger-count">0</span>
+                    </div>
+                </div>
+                
+                <div class="panel">
+                    <div style="font-size: 0.85rem; color: var(--accent); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.5rem;">
+                        📊 Statistics
+                    </div>
+                    <div class="metric">
+                        <span>Interfaces</span>
+                        <span class="metric-value" id="iface-count">0</span>
+                    </div>
+                    <div class="metric">
+                        <span>CoClasses</span>
+                        <span class="metric-value" id="coclass-count">0</span>
+                    </div>
+                    <div class="metric">
+                        <span>Methods</span>
+                        <span class="metric-value" id="method-count">0</span>
+                    </div>
+                    <div class="metric">
+                        <span>Properties</span>
+                        <span class="metric-value" id="prop-count">0</span>
+                    </div>
+                </div>
+                
+                <div class="panel">
+                    <div style="font-size: 0.85rem; color: var(--accent); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.5rem;">
+                        🔎 Quick Filter
+                    </div>
+                    <input type="text" class="search-box" id="tree-filter" placeholder="Filter interfaces..." onkeyup="filterTree()">
+                    <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.5rem;">
+                        <div style="margin: 0.25rem 0;"><span style="color: var(--danger);">●</span> High Risk</div>
+                        <div style="margin: 0.25rem 0;"><span style="color: var(--warning);">●</span> Scriptable</div>
+                        <div style="margin: 0.25rem 0;"><span style="color: var(--accent);">●</span> Custom</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Main Workspace -->
+        <div class="main">
+            <div class="workspace">
+                <!-- Editor Split View -->
+                <div class="editor-split">
+                    <!-- Left: Input -->
+                    <div class="editor-pane">
+                        <div class="pane-header">
+                            <span>IDL Source</span>
+                            <span style="font-size: 0.75rem; opacity: 0.7;">Edit or Paste</span>
+                        </div>
+                        <div class="input-area">
+                            <textarea id="idl-input" placeholder="[object, uuid(12345678-1234-1234-1234-123456789012)]
+interface IExample : IUnknown {
+    HRESULT Exec([in] BSTR command);
+    HRESULT Read([in] BSTR path, [out, retval] BSTR* content);
+};"></textarea>
+                        </div>
+                    </div>
+                    
+                    <!-- Right: Analysis Tree -->
+                    <div class="editor-pane">
+                        <div class="pane-header">
+                            <span>Structural Analysis</span>
+                            <span id="status-text" style="font-size: 0.75rem; color: var(--warning);">Ready</span>
+                        </div>
+                        <div class="tree-container" id="tree-scroll-container">
+                            <div class="loading-overlay" id="loading">
+                                <div class="spinner"></div>
+                            </div>
+                            <div class="forensic-tree" id="analysis-tree">
+                                <div class="tree-placeholder">
+                                    <div class="empty-state-icon">📋</div>
+                                    <div>Enter IDL and click Analyze</div>
+                                    <div style="font-size: 0.85rem; margin-top: 0.5rem; opacity: 0.7;">
+                                        Large files supported (>10,000 lines)
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Bottom: Details Panel (Fixed height, never pushed out) -->
+                <div class="details-panel">
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 1rem; background: rgba(0,0,0,0.2); border-bottom: 1px solid var(--border);">
+                        <span style="font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px; color: var(--accent);">
+                            Forensic Details & VTable Layout
+                        </span>
+                        <div class="details-toolbar" style="padding: 0; border: none;">
+                            <button onclick="showVTable()" class="active" id="btn-vtable">VTable</button>
+                            <button onclick="showMarshaling()" id="btn-marshal">Marshaling</button>
+                            <button onclick="showSecurity()" id="btn-security">ACLs</button>
+                            <button onclick="showHex()" id="btn-hex">Hex View</button>
+                        </div>
+                    </div>
+                    <div class="details-content" id="details-content">
+                        <div class="empty-state" style="height: auto;">
+                            <div style="font-size: 2rem; margin-bottom: 0.5rem;">🔍</div>
+                            <div>Select an interface to inspect details</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentAnalysis = null;
+        let selectedInterface = null;
+        let expandedNodes = new Set();
+        
+        // Debounce function for performance
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+        
+        async function analyzeIDL() {
+            const idl = document.getElementById('idl-input').value;
+            const tree = document.getElementById('analysis-tree');
+            const loading = document.getElementById('loading');
+            const status = document.getElementById('status-text');
+            
+            // Show loading
+            loading.classList.add('active');
+            status.textContent = 'Parsing...';
+            status.style.color = 'var(--warning)';
+            
+            // Yield to UI thread
+            await new Promise(resolve => setTimeout(resolve, 50));
+            
+            try {
+                // Parse in chunks for large files
+                const analysis = await parseIDLLarge(idl);
+                currentAnalysis = analysis;
+                
+                // Update stats
+                updateStats(analysis);
+                
+                // Build tree (virtual rendering for large datasets)
+                await renderTree(analysis);
+                
+                status.textContent = `Complete - ${analysis.interfaces.length} interfaces`;
+                status.style.color = 'var(--success)';
+                
+                // Update file info
+                const lines = idl.split('\n').length;
+                document.getElementById('file-info').textContent = `${lines.toLocaleString()} lines`;
+                
+            } catch (err) {
+                status.textContent = 'Error';
+                status.style.color = 'var(--danger)';
+                console.error(err);
+            } finally {
+                loading.classList.remove('active');
+            }
+        }
+        
+        async function parseIDLLarge(idl) {
+            // Chunked parsing for large files to prevent UI freeze
+            const analysis = {
+                interfaces: [],
+                coclasses: [],
+                enums: [],
+                methods: [],
+                dangerousPatterns: [],
+                totalLines: idl.split('\n').length
+            };
+            
+            // Process in chunks
+            const chunkSize = 1000;
+            const lines = idl.split('\n');
+            
+            // Extract blocks first
+            const interfaceBlocks = [];
+            const coclassBlocks = [];
+            
+            // Regex for interface detection
+            const ifaceRegex = /\[([^\]]+)\]\s*interface\s+(\w+)\s*:\s*(\w+)\s*\{/gi;
+            const coclassRegex = /\[([^\]]+)\]\s*coclass\s+(\w+)\s*\{/gi;
+            
+            // Parse interfaces
+            let match;
+            while ((match = ifaceRegex.exec(idl)) !== null) {
+                const startIdx = match.index;
+                let braceCount = 1;
+                let endIdx = startIdx + match[0].length;
+                
+                while (braceCount > 0 && endIdx < idl.length) {
+                    if (idl[endIdx] === '{') braceCount++;
+                    else if (idl[endIdx] === '}') braceCount--;
+                    endIdx++;
+                }
+                
+                const block = idl.slice(startIdx, endIdx);
+                const attrs = match[1];
+                const name = match[2];
+                const base = match[3];
+                
+                // Quick yield every 10 interfaces
+                if (analysis.interfaces.length % 10 === 0) {
+                    await new Promise(r => setTimeout(r, 0));
+                }
+                
+                analysis.interfaces.push(parseInterface(name, base, attrs, block));
+            }
+            
+            // Parse coclasses
+            while ((match = coclassRegex.exec(idl)) !== null) {
+                const startIdx = match.index;
+                let braceCount = 1;
+                let endIdx = startIdx + match[0].length;
+                
+                while (braceCount > 0 && endIdx < idl.length) {
+                    if (idl[endIdx] === '{') braceCount++;
+                    else if (idl[endIdx] === '}') braceCount--;
+                    endIdx++;
+                }
+                
+                const block = idl.slice(startIdx, endIdx);
+                analysis.coclasses.push({
+                    name: match[2],
+                    attrs: match[1],
+                    block: block
+                });
+            }
+            
+            return analysis;
+        }
+        
+        function parseInterface(name, base, attrs, block) {
+            const iid = (attrs.match(/uuid\(([^{)]+)\)/i) || ['', 'UNKNOWN'])[1];
+            const isDispatch = attrs.toLowerCase().includes('dual') || 
+                              base.toLowerCase().includes('dispatch');
+            const isHidden = attrs.toLowerCase().includes('hidden');
+            const isRestricted = attrs.toLowerCase().includes('restricted');
+            
+            // Parse methods efficiently
+            const methods = [];
+            const methodRegex = /HRESULT\s+(\w+)\s*\(([^)]*)\)/gi;
+            let m;
+            
+            while ((m = methodRegex.exec(block)) !== null) {
+                const mname = m[1];
+                const paramsRaw = m[2];
+                
+                const isDangerous = /exec|shell|createprocess|write|delete|reg|navigate|load|save/i.test(mname);
+                const isSystem = /alloc|free|copy|move/i.test(mname);
+                
+                // Parse params
+                const params = paramsRaw.split(',').map(p => {
+                    p = p.trim();
+                    const dir = p.includes('[in]') ? 'in' : p.includes('[out]') ? 'out' : 'inout';
+                    const type = p.replace(/\[.*?\]/g, '').trim().split(/\s+/).pop();
+                    return { dir, type, raw: p };
+                }).filter(p => p.raw);
+                
+                methods.push({
+                    name: mname,
+                    params,
+                    isDangerous,
+                    isSystem,
+                    dispid: methods.length + 1
+                });
+            }
+            
+            return {
+                name,
+                iid,
+                base,
+                isDispatch,
+                isHidden,
+                isRestricted,
+                methods,
+                attrs
+            };
+        }
+        
+        async function renderTree(analysis) {
+            const container = document.getElementById('analysis-tree');
+            
+            if (analysis.interfaces.length === 0 && analysis.coclasses.length === 0) {
+                container.innerHTML = '<div class="tree-placeholder">No COM interfaces found</div>';
+                return;
+            }
+            
+            let html = '';
+            
+            // Render interfaces with virtualization awareness
+            analysis.interfaces.forEach((iface, idx) => {
+                const hasDanger = iface.methods.some(m => m.isDangerous);
+                const nodeClass = hasDanger ? 'dangerous' : 'interface';
+                const isExpanded = expandedNodes.has(iface.name);
+                
+                html += `
+                    <div class="tree-item" style="margin-left: ${idx === 0 ? 0 : 16}px;">
+                        <div class="tree-node ${nodeClass}" onclick="selectInterface('${iface.name}')" data-name="${iface.name}">
+                            <span class="toggle-icon" onclick="event.stopPropagation(); toggleNode('${iface.name}')">
+                                ${iface.methods.length > 0 ? (isExpanded ? '▼' : '▶') : ' '}
+                            </span>
+                            <span style="flex: 1;">${iface.name}</span>
+                            <span class="badge badge-iid" title="${iface.iid}">${iface.iid.substr(0, 8)}...</span>
+                            ${iface.isDispatch ? '<span class="badge badge-disp">DISPATCH</span>' : ''}
+                            ${hasDanger ? '<span class="badge badge-danger">DANGER</span>' : ''}
+                        </div>
+                        <div id="children-${iface.name}" class="${isExpanded ? '' : 'collapsed'}">
+                            <div style="font-size: 0.8rem; color: var(--text-muted); margin: 4px 0 8px 28px;">
+                                Extends: ${iface.base} • ${iface.methods.length} methods
+                            </div>
+                            ${isExpanded ? renderMethods(iface.methods, iface.name) : ''}
+                        </div>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+        }
+        
+        function renderMethods(methods, ifaceName) {
+            return methods.map(m => {
+                const mClass = m.isDangerous ? 'dangerous' : 'method';
+                return `
+                    <div class="tree-item">
+                        <div class="tree-node ${mClass}" onclick="selectMethod('${ifaceName}', '${m.name}')">
+                            ${m.name}(${m.params.length})
+                            ${m.isDangerous ? '<span style="color: var(--danger); margin-left: auto;">⚠️</span>' : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        function toggleNode(name) {
+            const children = document.getElementById(`children-${name}`);
+            const isCollapsed = children.classList.contains('collapsed');
+            
+            if (isCollapsed) {
+                children.classList.remove('collapsed');
+                expandedNodes.add(name);
+                // Render methods if empty
+                if (children.children.length <= 1) {
+                    const iface = currentAnalysis.interfaces.find(i => i.name === name);
+                    if (iface) {
+                        const methodsDiv = document.createElement('div');
+                        methodsDiv.innerHTML = renderMethods(iface.methods, name);
+                        children.appendChild(methodsDiv);
+                    }
+                }
+            } else {
+                children.classList.add('collapsed');
+                expandedNodes.delete(name);
+            }
+        }
+        
+        function selectInterface(name) {
+            selectedInterface = name;
+            const iface = currentAnalysis.interfaces.find(i => i.name === name);
+            if (!iface) return;
+            
+            // Show vtable
+            showVTable(iface);
+        }
+        
+        function selectMethod(ifaceName, methodName) {
+            const iface = currentAnalysis.interfaces.find(i => i.name === ifaceName);
+            const method = iface.methods.find(m => m.name === methodName);
+            
+            const content = document.getElementById('details-content');
+            content.innerHTML = `
+                <div style="margin-bottom: 1rem;">
+                    <strong style="color: var(--accent); font-size: 1.1rem;">
+                        ${ifaceName}::${methodName}
+                    </strong>
+                    ${method.isDangerous ? '<span class="badge badge-danger" style="margin-left: 1rem;">HIGH RISK</span>' : ''}
+                </div>
+                <div style="display: grid; grid-template-columns: 100px 1fr; gap: 0.5rem; font-size: 0.9rem;">
+                    <span style="color: var(--text-muted);">Interface:</span>
+                    <span>${ifaceName}</span>
+                    <span style="color: var(--text-muted);">IID:</span>
+                    <span style="font-family: monospace; color: var(--accent);">${iface.iid}</span>
+                    <span style="color: var(--text-muted);">DISPID:</span>
+                    <span>${method.dispid}</span>
+                    <span style="color: var(--text-muted);">Parameters:</span>
+                    <span>${method.params.length}</span>
+                </div>
+                <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border);">
+                    <div style="color: var(--text-muted); margin-bottom: 0.5rem;">Signature:</div>
+                    <code style="background: rgba(0,0,0,0.3); padding: 0.5rem; display: block; border-radius: 4px; overflow-x: auto;">
+                        HRESULT ${method.name}(
+${method.params.map(p => `    /* [${p.dir}] */ ${p.raw}`).join(',\n')}
+                        );
+                    </code>
+                </div>
+                ${method.isDangerous ? `
+                <div style="margin-top: 1rem; padding: 0.75rem; background: rgba(255,0,76,0.1); border-left: 3px solid var(--danger); border-radius: 4px;">
+                    <strong style="color: var(--danger);">⚠️ Security Warning</strong><br>
+                    <span style="font-size: 0.9rem;">This method name matches dangerous patterns (Exec/Shell/Write/Delete). Review for potential abuse vectors.</span>
+                </div>
+                ` : ''}
+            `;
+        }
+        
+        function showVTable(iface) {
+            if (!iface) iface = currentAnalysis?.interfaces.find(i => i.name === selectedInterface);
+            if (!iface) return;
+            
+            // Update buttons
+            document.querySelectorAll('.details-toolbar button').forEach(b => b.classList.remove('active'));
+            document.getElementById('btn-vtable').classList.add('active');
+            
+            let slot = 0;
+            let rows = '';
+            
+            // IUnknown base
+            if (iface.base.toLowerCase().includes('unknown')) {
+                rows += `
+                    <div class="vtable-cell vtable-header">0</div>
+                    <div class="vtable-cell vtable-header">QueryInterface</div>
+                    <div class="vtable-cell vtable-header">HRESULT (REFIID, void**)</div>
+                    <div class="vtable-cell">1</div>
+                    <div class="vtable-cell">AddRef</div>
+                    <div class="vtable-cell">ULONG (void)</div>
+                    <div class="vtable-cell">2</div>
+                    <div class="vtable-cell">Release</div>
+                    <div class="vtable-cell">ULONG (void)</div>
+                `;
+                slot = 3;
+            }
+            
+            // Interface methods
+            iface.methods.forEach(m => {
+                const style = m.isDangerous ? 'color: var(--danger); font-weight: bold;' : '';
+                rows += `
+                    <div class="vtable-cell" style="${style}">${slot++}</div>
+                    <div class="vtable-cell" style="${style}">${m.name}</div>
+                    <div class="vtable-cell" style="${style} font-size: 0.8rem; opacity: 0.9;">
+                        HRESULT (${m.params.map(p => p.type).join(', ')})
+                    </div>
+                `;
+            });
+            
+            document.getElementById('details-content').innerHTML = `
+                <div style="margin-bottom: 0.5rem; font-size: 0.9rem; color: var(--text-muted);">
+                    Interface: <span style="color: var(--accent);">${iface.name}</span> | 
+                    Slots: ${slot} | 
+                    Size: ${slot * 8} bytes (x64)
+                </div>
+                <div class="vtable-grid">
+                    <div class="vtable-cell vtable-header">Slot</div>
+                    <div class="vtable-cell vtable-header">Method</div>
+                    <div class="vtable-cell vtable-header">Signature</div>
+                    ${rows}
+                </div>
+            `;
+        }
+        
+        function showMarshaling() {
+            document.querySelectorAll('.details-toolbar button').forEach(b => b.classList.remove('active'));
+            document.getElementById('btn-marshal').classList.add('active');
+            
+            document.getElementById('details-content').innerHTML = `
+                <div style="padding: 1rem;">
+                    <h4 style="color: var(--accent); margin-bottom: 1rem;">COM Marshaling Analysis</h4>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+                        <div>
+                            <div style="font-weight: bold; margin-bottom: 0.5rem; color: var(--warning);">Type Marshaling</div>
+                            <ul style="list-style: none; font-size: 0.9rem; line-height: 1.8;">
+                                <li>BSTR: Length-prefixed Unicode</li>
+                                <li>VARIANT: Type descriptor + data</li>
+                                <li>SAFEARRAY: Dimension bounds + data</li>
+                                <li>Interface: Interface pointer + IID</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <div style="font-weight: bold; margin-bottom: 0.5rem; color: var(--warning);">Proxy/Stub Requirements</div>
+                            <ul style="list-style: none; font-size: 0.9rem; line-height: 1.8;">
+                                <li>Interface must be registered</li>
+                                <li>TypeLib marshaling available</li>
+                                <li>PSFactoryBuffer in DLL</li>
+                                <li>Threading model compatibility</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <pre style="margin-top: 1rem; background: rgba(0,0,0,0.3); padding: 1rem; border-radius: 4px; overflow-x: auto; font-size: 0.85rem;">
+HRESULT CreateProxy(
+    IUnknown* pUnkOuter,
+    REFIID riid,
+    IRpcProxyBuffer** ppProxy,
+    void** ppv
+);
+                    </pre>
+                </div>
+            `;
+        }
+        
+        function showSecurity() {
+            document.querySelectorAll('.details-toolbar button').forEach(b => b.classList.remove('active'));
+            document.getElementById('btn-security').classList.add('active');
+            
+            document.getElementById('details-content').innerHTML = `
+                <div style="padding: 1rem;">
+                    <div style="background: rgba(255,0,76,0.05); border: 1px solid var(--danger); padding: 1rem; border-radius: 4px; margin-bottom: 1rem;">
+                        <strong style="color: var(--danger);">Access Control Analysis</strong>
+                        <p style="margin-top: 0.5rem; font-size: 0.9rem; opacity: 0.9;">
+                            COM launch/access permissions are stored in registry under:
+                            <br><code style="color: var(--accent);">HKLM\\Software\\Classes\\AppID\\{CLSID}</code>
+                        </p>
+                    </div>
+                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; font-size: 0.85rem;">
+                        <div class="panel" style="text-align: center;">
+                            <div style="font-size: 2rem; margin-bottom: 0.5rem;">🔓</div>
+                            <div style="color: var(--danger); font-weight: bold;">LaunchPermission</div>
+                            <div style="margin-top: 0.5rem; opacity: 0.8;">Default: Administrators</div>
+                        </div>
+                        <div class="panel" style="text-align: center;">
+                            <div style="font-size: 2rem; margin-bottom: 0.5rem;">🔐</div>
+                            <div style="color: var(--warning); font-weight: bold;">AccessPermission</div>
+                            <div style="margin-top: 0.5rem; opacity: 0.8;">Default: Self + System</div>
+                        </div>
+                        <div class="panel" style="text-align: center;">
+                            <div style="font-size: 2rem; margin-bottom: 0.5rem;">🛡️</div>
+                            <div style="color: var(--success); font-weight: bold;">Authentication</div>
+                            <div style="margin-top: 0.5rem; opacity: 0.8;">Connect/Pkt/Privacy</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        function showHex() {
+            document.querySelectorAll('.details-toolbar button').forEach(b => b.classList.remove('active'));
+            document.getElementById('btn-hex').classList.add('active');
+            
+            if (!selectedInterface) {
+                document.getElementById('details-content').innerHTML = `
+                    <div class="empty-state" style="height: auto;">
+                        Select an interface to view memory layout
+                    </div>
+                `;
+                return;
+            }
+            
+            const iface = currentAnalysis.interfaces.find(i => i.name === selectedInterface);
+            const iid = iface.iid.replace(/[{}-]/g, '');
+            const bytes = iid.match(/.{2}/g).map(b => parseInt(b, 16));
+            
+            let hex = '';
+            let ascii = '';
+            bytes.forEach((b, i) => {
+                hex += b.toString(16).padStart(2, '0') + ' ';
+                ascii += (b >= 32 && b < 127) ? String.fromCharCode(b) : '.';
+                if ((i + 1) % 8 === 0) {
+                    hex += ' ';
+                    ascii += ' ';
+                }
+            });
+            
+            document.getElementById('details-content').innerHTML = `
+                <div style="font-family: monospace; font-size: 0.9rem; line-height: 1.6;">
+                    <div style="color: var(--text-muted); margin-bottom: 0.5rem;">IID Memory Layout (Little Endian)</div>
+                    <div style="background: rgba(0,0,0,0.3); padding: 1rem; border-radius: 4px; overflow-x: auto;">
+                        <div>Offset  00 01 02 03 04 05 06 07  08 09 0A 0B 0C 0D 0E 0F  ASCII</div>
+                        <div style="color: var(--accent);">0000   ${hex}  ${ascii}</div>
+                    </div>
+                    <div style="margin-top: 1rem; color: var(--text-muted); font-size: 0.85rem;">
+                        Data1: 0x${bytes.slice(0,4).reverse().map(b => b.toString(16).padStart(2,'0')).join('')} (Timestamp if v1)<br>
+                        Data2: 0x${bytes.slice(4,6).reverse().map(b => b.toString(16).padStart(2,'0')).join('')} (Version/Timestamp mid)<br>
+                        Data3: 0x${bytes.slice(6,8).reverse().map(b => b.toString(16).padStart(2,'0')).join('')} (Version + Variant)<br>
+                        Data4: ${bytes.slice(8).map(b => b.toString(16).padStart(2,'0')).join(' ')} (Node ID)
+                    </div>
+                </div>
+            `;
+        }
+        
+        function updateStats(analysis) {
+            document.getElementById('iface-count').textContent = analysis.interfaces.length;
+            document.getElementById('coclass-count').textContent = analysis.coclasses.length;
+            document.getElementById('method-count').textContent = 
+                analysis.interfaces.reduce((acc, i) => acc + i.methods.length, 0);
+            document.getElementById('prop-count').textContent = 
+                analysis.interfaces.reduce((acc, i) => acc + i.methods.filter(m => m.name.startsWith('get_') || m.name.startsWith('put_')).length, 0);
+            
+            document.getElementById('scriptable-count').textContent = 
+                analysis.interfaces.filter(i => i.isDispatch).length;
+            document.getElementById('hidden-count').textContent = 
+                analysis.interfaces.filter(i => i.isHidden).length;
+            document.getElementById('danger-count').textContent = 
+                analysis.dangerousPatterns.length;
+            
+            // Calculate attack surface score
+            let score = 0;
+            score += analysis.interfaces.filter(i => i.isDispatch).length * 10;
+            score += analysis.interfaces.filter(i => i.isHidden).length * 15;
+            score += analysis.dangerousPatterns.length * 20;
+            score += analysis.interfaces.reduce((acc, i) => acc + i.methods.length, 0) * 0.5;
+            
+            document.getElementById('attack-surface').textContent = Math.floor(score);
+            
+            const riskEl = document.getElementById('risk-score');
+            if (score > 200) {
+                riskEl.textContent = 'CRITICAL';
+                riskEl.className = 'metric-value risk-high';
+            } else if (score > 100) {
+                riskEl.textContent = 'HIGH';
+                riskEl.className = 'metric-value risk-high';
+            } else if (score > 50) {
+                riskEl.textContent = 'MEDIUM';
+                riskEl.className = 'metric-value risk-medium';
+            } else {
+                riskEl.textContent = 'LOW';
+                riskEl.className = 'metric-value risk-low';
+            }
+        }
+        
+        function filterTree() {
+            const filter = document.getElementById('tree-filter').value.toLowerCase();
+            const nodes = document.querySelectorAll('.tree-node[data-name]');
+            
+            nodes.forEach(node => {
+                const name = node.getAttribute('data-name').toLowerCase();
+                const item = node.closest('.tree-item');
+                if (name.includes(filter)) {
+                    item.style.display = 'block';
+                    // Auto-expand matching
+                    const children = document.getElementById(`children-${node.getAttribute('data-name')}`);
+                    if (children && filter.length > 0) {
+                        children.classList.remove('collapsed');
+                        expandedNodes.add(node.getAttribute('data-name'));
+                    }
+                } else {
+                    item.style.display = filter.length === 0 ? 'block' : 'none';
+                }
+            });
+        }
+        
+        function generateReport() {
+            if (!currentAnalysis) {
+                alert('Please analyze IDL first');
+                return;
+            }
+            
+            const report = {
+                generated: new Date().toISOString(),
+                summary: {
+                    interfaces: currentAnalysis.interfaces.length,
+                    coclasses: currentAnalysis.coclasses.length,
+                    methods: currentAnalysis.interfaces.reduce((acc, i) => acc + i.methods.length, 0),
+                    riskScore: document.getElementById('risk-score').textContent
+                },
+                interfaces: currentAnalysis.interfaces.map(i => ({
+                    name: i.name,
+                    iid: i.iid,
+                    base: i.base,
+                    isDispatch: i.isDispatch,
+                    isHidden: i.isHidden,
+                    methods: i.methods.map(m => ({
+                        name: m.name,
+                        params: m.params.length,
+                        isDangerous: m.isDangerous
+                    }))
+                })),
+                highRiskMethods: currentAnalysis.dangerousPatterns
+            };
+            
+            const blob = new Blob([JSON.stringify(report, null, 2)], {type: 'application/json'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `com_forensics_${Date.now()}.json`;
+            a.click();
+        }
+        
+        // Initialize with empty state
+        window.onload = () => {
+            document.getElementById('idl-input').focus();
+        };
+    </script>
+</body>
+</html>
