@@ -1,0 +1,952 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>x86-64 Instruction Encoding Syntax</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:      #040710;
+    --border:  #0d1526;
+    --font:    'JetBrains Mono', 'Fira Code', monospace;
+  }
+
+  body {
+    background: var(--bg);
+    color: #dde3ec;
+    font-family: var(--font);
+    min-height: 100vh;
+  }
+
+  /* ── Header ─────────────────────────────────────────────── */
+  #header {
+    padding: 14px 22px 12px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+  #header h1 { font-size: 13px; font-weight: 700; letter-spacing: .03em; }
+  #header p  { font-size: 8.5px; margin-top: 3px; letter-spacing: .08em; color: #2a3a50; }
+
+  #legend {
+    margin-left: auto;
+    display: flex;
+    gap: 14px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .legend-item { display: flex; align-items: center; gap: 5px; }
+  .legend-dot  { width: 7px; height: 7px; border-radius: 1.5px; }
+  .legend-label{ font-size: 8.5px; letter-spacing: .07em; }
+
+  /* ── Diagram wrapper ─────────────────────────────────────── */
+  #diagram { overflow-x: auto; }
+  #diagram-inner { min-width: 820px; padding: 0 12px 12px; }
+
+  /* Column header bar */
+  #col-headers {
+    display: grid;
+    grid-template-columns: 162px 214px 84px 78px 72px 78px 82px auto;
+    padding: 7px 8px 4px;
+    min-width: 820px;
+  }
+  .col-hdr {
+    font-size: 7.5px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: #182233;
+    text-align: center;
+  }
+
+  /* ── Group divider ───────────────────────────────────────── */
+  .group-divider {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 0 4px;
+  }
+  .group-divider .line { flex: 1; height: 1px; }
+  .group-divider .label {
+    font-size: 7.5px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    opacity: .55;
+  }
+
+  /* ── Row ─────────────────────────────────────────────────── */
+  .row-wrap { position: relative; }
+
+  .row-svg-wrap {
+    cursor: pointer;
+    user-select: none;
+  }
+  .row-svg-wrap svg { display: block; overflow: visible; }
+
+  /* ── Examples panel ──────────────────────────────────────── */
+  .examples {
+    border-radius: 0 0 8px 8px;
+    padding: 16px 20px 18px;
+    animation: slideDown .16s ease-out;
+  }
+  @keyframes slideDown {
+    from { opacity: 0; transform: translateY(-6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .examples-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+  }
+  .examples-title { font-size: 11px; font-weight: 700; letter-spacing: .04em; }
+
+  .close-btn {
+    background: none;
+    font-family: var(--font);
+    font-size: 9px;
+    padding: 2px 9px;
+    border-radius: 4px;
+    cursor: pointer;
+    letter-spacing: .06em;
+  }
+
+  .example-block { margin-bottom: 18px; }
+  .example-block:last-child { margin-bottom: 0; }
+
+  .example-head {
+    display: flex;
+    gap: 10px;
+    align-items: baseline;
+    margin-bottom: 8px;
+  }
+  .example-mnemonic { font-size: 12px; font-weight: 700; color: #e2e8f0; }
+  .example-asm      { font-size: 10px; color: #2d3f55; }
+
+  .byte-row {
+    display: flex;
+    gap: 2px;
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+
+  .byte-card { display: flex; flex-direction: column; align-items: center; margin-right: 2px; margin-bottom: 2px; }
+
+  .byte-box {
+    background: #0c111f;
+    border-radius: 6px;
+    width: 68px;
+    padding: 6px 0 22px;
+    text-align: center;
+    position: relative;
+  }
+  .byte-hex   { font-size: 17px; font-weight: 700; }
+  .byte-field-label {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    border-radius: 0 0 5px 5px;
+    padding: 2px 3px;
+    font-size: 7px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-align: center;
+  }
+  .byte-note {
+    margin-top: 4px;
+    color: #384a5f;
+    font-size: 7.8px;
+    width: 68px;
+    line-height: 1.35;
+    padding-left: 1px;
+  }
+
+  .byte-count {
+    font-size: 9px;
+    padding: 3px 9px;
+    border-radius: 12px;
+    margin-top: 8px;
+    margin-left: 6px;
+  }
+
+  /* ── Footer ──────────────────────────────────────────────── */
+  #footer {
+    padding: 8px 22px 16px;
+    border-top: 1px solid #0a1020;
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .footer-note { color: #14243a; font-size: 8px; }
+
+  .req-legend { margin-left: auto; display: flex; gap: 14px; }
+  .req-item   { display: flex; align-items: center; gap: 6px; font-size: 8px; color: #2a3a50; }
+
+  /* ── Tooltip ─────────────────────────────────────────────── */
+  #tooltip {
+    position: fixed;
+    pointer-events: none;
+    display: none;
+    z-index: 1000;
+    background: #09101e;
+    border-radius: 6px;
+    padding: 10px 11px 10px;
+    max-width: 300px;
+    box-shadow: 0 6px 24px #000;
+    font-size: 9.5px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+  }
+</style>
+</head>
+<body>
+
+<div id="header">
+  <div>
+    <h1>x86-64 Instruction Encoding Syntax</h1>
+    <p>BYTE TRAJECTORY REFERENCE · HOVER FIELD FOR DETAILS · CLICK ROW FOR EXAMPLES · DASHED BORDER = OPTIONAL</p>
+  </div>
+  <div id="legend"></div>
+</div>
+
+<div id="diagram">
+  <div id="col-headers">
+    <div class="col-hdr">PREFIX / MARKER</div>
+    <div class="col-hdr">PAYLOAD / ESCAPE</div>
+    <div class="col-hdr">OPCODE</div>
+    <div class="col-hdr">ModRM</div>
+    <div class="col-hdr">SIB</div>
+    <div class="col-hdr">DISP</div>
+    <div class="col-hdr">IMM</div>
+  </div>
+  <div id="diagram-inner"></div>
+</div>
+
+<div id="footer">
+  <span class="footer-note">Max length: 15 bytes</span>
+  <span class="footer-note">REX / legacy prefixes forbidden with VEX · EVEX · XOP</span>
+  <span class="footer-note">XOP deprecated AMD Zen 4+</span>
+  <span class="footer-note">EVEX MAP5/MAP6 = AVX-512 FP16 (AVX10)</span>
+  <div class="req-legend">
+    <div class="req-item">
+      <svg width="36" height="16"><rect x="1" y="2" width="34" height="12" rx="3" fill="#06090f" stroke="#6b7a8d" stroke-width="2"/></svg>
+      required
+    </div>
+    <div class="req-item">
+      <svg width="36" height="16"><rect x="1" y="2" width="34" height="12" rx="3" fill="#06090f" stroke="#6b7a8d" stroke-width="1.5" stroke-dasharray="5 3" opacity="0.7"/></svg>
+      optional
+    </div>
+  </div>
+</div>
+
+<div id="tooltip"></div>
+
+<script>
+// ─── Data ──────────────────────────────────────────────────────────────────
+const COLS = {
+  legpfx:  { cx: 268 },
+  rex:     { cx: 354 },
+  marker:  { cx: 300 },
+  payload: { cx: 410 },
+  esc:     { cx: 440 },
+
+  opcode:  { cx: 545 },
+  modrm:   { cx: 655 },
+  sib:     { cx: 753 },
+  disp:    { cx: 851 },
+  imm:     { cx: 955 },
+};
+const SVG_W = 1040, ROW_H = 68, BOX_H = 38;
+
+const GROUPS = [
+  {
+    id: "legacy", label: "LEGACY", color: "#7dd3fc",
+    families: [
+      {
+        id: "prim", name: "Primary map",
+        tag: "No escape — most common instructions",
+        color: "#7dd3fc", bg: "#040c18",
+        fields: [
+          { col: "legpfx", w: 78, label: "Legacy Pfx", sub: "0–4 bytes", opt: true,
+            tip: "Up to 4 prefixes in any order:\n• LOCK (F0)\n• REP/REPNE (F2/F3)\n• Segment override (26 2E 36 3E 64 65)\n• Operand-size (66)\n• Address-size (67)" },
+          { col: "rex", w: 42, label: "REX", sub: "40h–4Fh", opt: true,
+            tip: "REX.WRXB (one byte):\n• W – 64-bit operand size\n• R – extends ModRM.reg to 4 bits\n• X – extends SIB.index\n• B – extends ModRM.r/m or opcode-embedded reg" },
+          { col: "opcode", w: 84, label: "Opcode", sub: "1 byte", opt: false,
+            tip: "One byte from the primary map (00h–FFh).\nBits[2:0] may encode a register (e.g. PUSH rAX = 50h+rb)." },
+          { col: "modrm", w: 78, label: "ModRM", sub: "1 byte", opt: true,
+            tip: "mod(2) · reg(3) · r/m(3)\nmod=11 → reg/reg; 00/01/10 → memory\nreg may be an opcode extension (/digit 0–7)." },
+          { col: "sib", w: 72, label: "SIB", sub: "1 byte", opt: true,
+            tip: "scale(2) · index(3) · base(3)\nRequired when mod≠11 and r/m=100b.\nAddress: base + index×(1<<scale) + disp" },
+          { col: "disp", w: 78, label: "Disp", sub: "0/1/2/4B", opt: true,
+            tip: "Memory displacement, sign-extended to address size." },
+          { col: "imm", w: 82, label: "Imm", sub: "0/1/2/4/8B", opt: true,
+            tip: "Immediate value, sign/zero-extended to operand size." },
+        ],
+        examples: [
+          { mnemonic: "ADD rax, rcx", asm: "; 64-bit register add",
+            bytes: [
+              { hex: "48", field: "REX",    color: "#93c5fd", note: "REX.W=1 → 64-bit operand size" },
+              { hex: "01", field: "Opcode", color: "#38bdf8", note: "ADD r/m, r" },
+              { hex: "C8", field: "ModRM",  color: "#a78bfa", note: "mod=11 reg=rcx(1) r/m=rax(0)" },
+            ]},
+          { mnemonic: "PUSH rbx", asm: "; no REX needed",
+            bytes: [
+              { hex: "53", field: "Opcode", color: "#38bdf8", note: "PUSH r64, opcode = 50h+rb (rb=3 for rbx)" },
+            ]},
+          { mnemonic: "MOV [rsi+0x10], al", asm: "; byte store with disp8",
+            bytes: [
+              { hex: "88", field: "Opcode", color: "#38bdf8", note: "MOV r/m8, r8" },
+              { hex: "46", field: "ModRM",  color: "#a78bfa", note: "mod=01 reg=al(0) r/m=rsi(6)" },
+              { hex: "10", field: "Disp",   color: "#f472b6", note: "disp8 = +0x10" },
+            ]},
+        ],
+      },
+      {
+        id: "esc2", name: "0F — Two-byte map",
+        tag: "SSE integer/FP, system, VMX…",
+        color: "#38bdf8", bg: "#030e15",
+        fields: [
+          { col: "legpfx", w: 78, label: "Legacy Pfx", sub: "0–4 bytes", opt: true,
+            tip: "66h → SSE2 (66 0F)\nF3h → SSE scalar-single\nF2h → SSE scalar-double" },
+          { col: "rex", w: 42, label: "REX", sub: "40h–4Fh", opt: true,
+            tip: "Same REX.WRXB semantics." },
+          { col: "esc", w: 80, label: "0Fh", sub: "escape", opt: false,
+            tip: "Escape byte 0Fh selects the two-byte opcode map.\nThe mandatory prefix (if any) determines the variant:\n• (none) 0F → original\n• 66 0F   → SSE2\n• F3 0F   → SSEf3\n• F2 0F   → SSEf2" },
+          { col: "opcode", w: 84, label: "Opcode", sub: "map 0F", opt: false,
+            tip: "Second opcode byte (00h–FFh).\n28h=MOVAPS, 57h=XORPS, AFh=IMUL r,r/m, AEh=SFENCE/LFENCE" },
+          { col: "modrm", w: 78, label: "ModRM", sub: "1 byte", opt: true, tip: "ModRM where required." },
+          { col: "sib",   w: 72, label: "SIB",   sub: "1 byte", opt: true, tip: "SIB for memory operand." },
+          { col: "disp",  w: 78, label: "Disp",  sub: "0/1/2/4B", opt: true, tip: "Displacement." },
+          { col: "imm",   w: 82, label: "Imm",   sub: "0/1B", opt: true, tip: "Imm8 for select instructions (e.g. PSRLW imm8)." },
+        ],
+        examples: [
+          { mnemonic: "MOVAPS xmm0, xmm1", asm: "; move aligned packed single",
+            bytes: [
+              { hex: "0F", field: "Escape", color: "#22d3ee", note: "0F escape" },
+              { hex: "28", field: "Opcode", color: "#38bdf8", note: "MOVAPS xmm, xmm/m128" },
+              { hex: "C1", field: "ModRM",  color: "#a78bfa", note: "mod=11 reg=xmm0(0) r/m=xmm1(1)" },
+            ]},
+          { mnemonic: "ADDSD xmm2, xmm3", asm: "; F2 prefix → scalar double",
+            bytes: [
+              { hex: "F2", field: "Pfx",    color: "#7dd3fc", note: "F2h mandatory prefix" },
+              { hex: "0F", field: "Escape", color: "#22d3ee", note: "0F escape" },
+              { hex: "58", field: "Opcode", color: "#38bdf8", note: "ADDSD" },
+              { hex: "D3", field: "ModRM",  color: "#a78bfa", note: "mod=11 reg=xmm2 r/m=xmm3" },
+            ]},
+          { mnemonic: "IMUL rax, rcx", asm: "; signed multiply",
+            bytes: [
+              { hex: "48", field: "REX",    color: "#93c5fd", note: "REX.W=1" },
+              { hex: "0F", field: "Escape", color: "#22d3ee", note: "0F escape" },
+              { hex: "AF", field: "Opcode", color: "#38bdf8", note: "IMUL r64, r/m64" },
+              { hex: "C1", field: "ModRM",  color: "#a78bfa", note: "mod=11 reg=rax r/m=rcx" },
+            ]},
+        ],
+      },
+      {
+        id: "map38", name: "0F 38 — Three-byte map",
+        tag: "SSSE3, SSE4.1, SSE4.2, AES-NI, SHA…",
+        color: "#22d3ee", bg: "#021212",
+        fields: [
+          { col: "legpfx", w: 78, label: "Legacy Pfx", sub: "0–4 bytes", opt: true,
+            tip: "66h selects the most common variants.\nF2 0F 38: CRC32, ADCX.\n(none) 0F 38: MMX PSHUFB, PMADDUBSW." },
+          { col: "rex", w: 42, label: "REX", sub: "40h–4Fh", opt: true, tip: "REX.WRXB." },
+          { col: "esc", w: 80, label: "0Fh · 38h", sub: "2 escapes", opt: false,
+            tip: "0F 38h → three-byte opcode map.\nSSSE3, SSE4.1, SSE4.2, AES-NI, SHA extensions." },
+          { col: "opcode", w: 84, label: "Opcode", sub: "map 0F38", opt: false, tip: "Third opcode byte." },
+          { col: "modrm", w: 78, label: "ModRM", sub: "1 byte", opt: false, tip: "ModRM always present in this map." },
+          { col: "sib",   w: 72, label: "SIB",   sub: "1 byte", opt: true, tip: "SIB for memory." },
+          { col: "disp",  w: 78, label: "Disp",  sub: "0/1/2/4B", opt: true, tip: "Displacement." },
+        ],
+        examples: [
+          { mnemonic: "PSHUFB xmm0, xmm1", asm: "; SSSE3 per-byte shuffle",
+            bytes: [
+              { hex: "66", field: "Pfx",    color: "#7dd3fc", note: "mandatory 66h" },
+              { hex: "0F", field: "Escape", color: "#22d3ee", note: "first escape" },
+              { hex: "38", field: "Escape", color: "#22d3ee", note: "second escape" },
+              { hex: "00", field: "Opcode", color: "#38bdf8", note: "PSHUFB xmm, xmm/m128" },
+              { hex: "C1", field: "ModRM",  color: "#a78bfa", note: "mod=11 dst=xmm0 src=xmm1" },
+            ]},
+          { mnemonic: "AESENC xmm0, xmm1", asm: "; AES-NI one round",
+            bytes: [
+              { hex: "66", field: "Pfx",    color: "#7dd3fc", note: "mandatory 66h" },
+              { hex: "0F", field: "Escape", color: "#22d3ee", note: "first escape" },
+              { hex: "38", field: "Escape", color: "#22d3ee", note: "second escape" },
+              { hex: "DC", field: "Opcode", color: "#38bdf8", note: "AESENC xmm, xmm/m128" },
+              { hex: "C1", field: "ModRM",  color: "#a78bfa", note: "mod=11 dst=xmm0 src=xmm1" },
+            ]},
+        ],
+      },
+      {
+        id: "map3a", name: "0F 3A — Three-byte map",
+        tag: "All instructions carry a mandatory imm8 control byte",
+        color: "#06b6d4", bg: "#021014",
+        fields: [
+          { col: "legpfx", w: 78, label: "Legacy Pfx", sub: "0–4 bytes", opt: true,
+            tip: "66h nearly always required.\nROUNDSS/D/PS/PD, PBLENDW, PCMPISTRM, AESKEYGENASSIST." },
+          { col: "rex", w: 42, label: "REX", sub: "40h–4Fh", opt: true, tip: "REX prefix." },
+          { col: "esc", w: 80, label: "0Fh · 3Ah", sub: "2 escapes", opt: false,
+            tip: "0F 3Ah → three-byte map.\nEvery instruction ends with an imm8 control byte:\nrounding mode, blend mask, comparison predicate, lane selector…" },
+          { col: "opcode", w: 84, label: "Opcode", sub: "map 0F3A", opt: false, tip: "Third opcode byte." },
+          { col: "modrm", w: 78, label: "ModRM", sub: "1 byte", opt: false, tip: "ModRM always present." },
+          { col: "sib",   w: 72, label: "SIB",   sub: "1 byte", opt: true, tip: "SIB when needed." },
+          { col: "disp",  w: 78, label: "Disp",  sub: "0/1/2/4B", opt: true, tip: "Displacement." },
+          { col: "imm",   w: 82, label: "Imm8",  sub: "always present", opt: false,
+            tip: "Imm8 always required — a control byte, not data:\n• ROUNDSS: rounding mode + SAE flag\n• PCMPISTRI: comparison mode, output select\n• PBLENDW: blend mask for 8 word lanes\n• PALIGNR: byte shift amount" },
+        ],
+        examples: [
+          { mnemonic: "ROUNDSS xmm0, xmm1, 0", asm: "; round to nearest",
+            bytes: [
+              { hex: "66", field: "Pfx",    color: "#7dd3fc", note: "mandatory 66h" },
+              { hex: "0F", field: "Escape", color: "#22d3ee", note: "first escape" },
+              { hex: "3A", field: "Escape", color: "#22d3ee", note: "second escape" },
+              { hex: "0A", field: "Opcode", color: "#38bdf8", note: "ROUNDSS" },
+              { hex: "C1", field: "ModRM",  color: "#a78bfa", note: "mod=11 dst=xmm0 src=xmm1" },
+              { hex: "00", field: "Imm8",   color: "#f59e0b", note: "rounding mode=00 (nearest), SAE=0" },
+            ]},
+          { mnemonic: "PBLENDW xmm0, xmm1, 0xAA", asm: "; blend even words",
+            bytes: [
+              { hex: "66", field: "Pfx",    color: "#7dd3fc", note: "mandatory 66h" },
+              { hex: "0F", field: "Escape", color: "#22d3ee", note: "escape" },
+              { hex: "3A", field: "Escape", color: "#22d3ee", note: "escape" },
+              { hex: "0E", field: "Opcode", color: "#38bdf8", note: "PBLENDW" },
+              { hex: "C1", field: "ModRM",  color: "#a78bfa", note: "mod=11 dst=xmm0 src=xmm1" },
+              { hex: "AA", field: "Imm8",   color: "#f59e0b", note: "blend mask 10101010b → even lanes" },
+            ]},
+        ],
+      },
+      {
+        id: "tdnow", name: "3DNow! (0F 0F)",
+        tag: "AMD only — actual opcode byte lives after ModRM/SIB/Disp",
+        color: "#fb923c", bg: "#120600",
+        fields: [
+          { col: "legpfx", w: 78, label: "Legacy Pfx", sub: "0–4 bytes", opt: true, tip: "Legacy prefixes rarely used in 3DNow!." },
+          { col: "rex", w: 42, label: "REX", sub: "40h–4Fh", opt: true, tip: "REX in 64-bit mode." },
+          { col: "esc", w: 80, label: "0Fh · 0Fh", sub: "2 escapes", opt: false,
+            tip: "Unusual design: two 0F escape bytes.\nThe real opcode is the LAST byte — after all operand fields.\nThis minimised decoder changes for the K6 era.\nAMD-only; deprecated on Zen 4+." },
+          { col: "modrm", w: 78, label: "ModRM", sub: "1 byte", opt: false,
+            tip: "Source = MMX reg or 64-bit memory.\nDestination always in ModRM.reg." },
+          { col: "sib",   w: 72, label: "SIB",   sub: "1 byte", opt: true, tip: "SIB for memory source." },
+          { col: "disp",  w: 78, label: "Disp",  sub: "0/1/2/4B", opt: true, tip: "Displacement for memory source." },
+          { col: "imm",   w: 82, label: "Opcode!", sub: "in imm8 slot", opt: false,
+            tip: "The actual opcode occupies the imm8 slot!\n• 9Eh = PFADD\n• AEh = PFSUBR\n• B4h = PFMUL\n• 1Dh = PF2ID, 0Dh = PI2FD\nAMD-only. Deprecated (Zen 4+)." },
+        ],
+        examples: [
+          { mnemonic: "PFADD mm0, mm1", asm: "; packed float add",
+            bytes: [
+              { hex: "0F", field: "Escape",  color: "#22d3ee", note: "first escape" },
+              { hex: "0F", field: "Escape",  color: "#22d3ee", note: "second escape → 3DNow!" },
+              { hex: "C1", field: "ModRM",   color: "#a78bfa", note: "mod=11 dst=mm0 src=mm1" },
+              { hex: "9E", field: "Opcode!", color: "#fb923c", note: "PFADD — opcode is LAST, after operands" },
+            ]},
+          { mnemonic: "PFMUL mm2, [rsi]", asm: "; multiply from memory",
+            bytes: [
+              { hex: "0F", field: "Escape",  color: "#22d3ee", note: "first escape" },
+              { hex: "0F", field: "Escape",  color: "#22d3ee", note: "second escape" },
+              { hex: "16", field: "ModRM",   color: "#a78bfa", note: "mod=00 dst=mm2 r/m=rsi(6)" },
+              { hex: "B4", field: "Opcode!", color: "#fb923c", note: "PFMUL — after the ModRM" },
+            ]},
+        ],
+      },
+    ],
+  },
+  {
+    id: "vex", label: "VEX", color: "#a78bfa",
+    families: [
+      {
+        id: "vex2", name: "VEX 2-byte (C5h)",
+        tag: "Map 1 only · 128/256-bit · REX and legacy prefixes forbidden",
+        color: "#a78bfa", bg: "#0d0620",
+        fields: [
+          { col: "marker", w: 42, label: "C5h", sub: "VEX 2B marker", opt: false,
+            tip: "VEX 2-byte prefix marker C5h.\nAll legacy prefixes and REX are FORBIDDEN.\nThe payload encodes what REX/mandatory-prefix would have been.\nIn 32-bit mode C5h = LDS — CPU disambiguates via ModRM.mod." },
+          { col: "payload", w: 126, label: "R̄ · v̄v̄v̄v̄ · L · pp", sub: "1 payload byte", opt: false,
+            tip: "One payload byte, 8 bits:\n• [7] R̄   inverted REX.R\n• [6:3] v̄v̄v̄v̄  inverted vvvv — 2nd source register\n• [2] L   0=128b XMM, 1=256b YMM\n• [1:0] pp  implied mandatory prefix:\n   00=none  01=66h  10=F3h  11=F2h\n\nMap 1 only. No REX.W / X / B → use 3-byte for those." },
+          { col: "opcode", w: 84, label: "Opcode", sub: "map 1", opt: false,
+            tip: "Opcode from map 1 (equivalent to 0F xx).\nDestination in ModRM.reg, extended by R̄." },
+          { col: "modrm", w: 78, label: "ModRM", sub: "1 byte", opt: true, tip: "ModRM." },
+          { col: "sib",   w: 72, label: "SIB",   sub: "1 byte", opt: true, tip: "SIB for memory." },
+          { col: "disp",  w: 78, label: "Disp",  sub: "0/1/2/4B", opt: true, tip: "Displacement." },
+          { col: "imm",   w: 82, label: "Imm",   sub: "0/1B", opt: true,
+            tip: "Optional imm8.\nFor 4-operand (is4) forms: bits[7:4] encode a 4th register." },
+        ],
+        examples: [
+          { mnemonic: "VMOVAPS xmm1, xmm2", asm: "; no REX, no 0F, no 66 needed",
+            bytes: [
+              { hex: "C5", field: "C5h",    color: "#a78bfa", note: "VEX 2-byte marker" },
+              { hex: "F8", field: "Payload",color: "#c084fc", note: "R̄=1 vvvv=1111(unused) L=0(XMM) pp=00" },
+              { hex: "28", field: "Opcode", color: "#38bdf8", note: "VMOVAPS (map 1 = 0F 28)" },
+              { hex: "CA", field: "ModRM",  color: "#a78bfa", note: "mod=11 reg=xmm1 r/m=xmm2" },
+            ]},
+          { mnemonic: "VADDPS ymm0, ymm1, ymm2", asm: "; L=1 selects 256-bit YMM",
+            bytes: [
+              { hex: "C5", field: "C5h",    color: "#a78bfa", note: "VEX 2-byte marker" },
+              { hex: "F4", field: "Payload",color: "#c084fc", note: "R̄=1 vvvv=1110(ymm1) L=1(YMM) pp=00" },
+              { hex: "58", field: "Opcode", color: "#38bdf8", note: "VADDPS" },
+              { hex: "C2", field: "ModRM",  color: "#a78bfa", note: "mod=11 reg=ymm0 r/m=ymm2" },
+            ]},
+          { mnemonic: "VADDSD xmm0, xmm1, xmm2", asm: "; F2 via pp=11 — no F2 byte emitted",
+            bytes: [
+              { hex: "C5", field: "C5h",    color: "#a78bfa", note: "VEX 2-byte marker" },
+              { hex: "F3", field: "Payload",color: "#c084fc", note: "R̄=1 vvvv=1110(xmm1) L=0 pp=11(F2h)" },
+              { hex: "58", field: "Opcode", color: "#38bdf8", note: "VADDSD" },
+              { hex: "C2", field: "ModRM",  color: "#a78bfa", note: "mod=11 reg=xmm0 r/m=xmm2" },
+            ]},
+        ],
+      },
+      {
+        id: "vex3", name: "VEX 3-byte (C4h)",
+        tag: "Maps 1/2/3 · full R/X/B extension · REX.W · no legacy prefixes",
+        color: "#c084fc", bg: "#100826",
+        fields: [
+          { col: "marker", w: 42, label: "C4h", sub: "VEX 3B marker", opt: false,
+            tip: "VEX 3-byte marker C4h.\nForbids legacy prefixes and REX.\nRequired when: maps 2 or 3 needed, REX.W needed, or REX.X/B extension needed." },
+          { col: "payload", w: 126, label: "R̄X̄B̄·mmm  ·  W·v̄v̄v̄v̄·L·pp", sub: "2 payload bytes", opt: false,
+            tip: "Byte 1: [7]R̄ [6]X̄ [5]B̄ [4:0]map\n• R̄ – inverted REX.R\n• X̄ – inverted REX.X\n• B̄ – inverted REX.B\n• map: 001=map1  010=map2  011=map3\n\nByte 2: [7]W [6:3]v̄v̄v̄v̄ [2]L [1:0]pp\n• W – REX.W / element type\n• vvvv – inverted NDS register\n• L – vector length\n• pp – implied mandatory prefix" },
+          { col: "opcode", w: 84, label: "Opcode", sub: "map 1/2/3", opt: false, tip: "Opcode from the selected map." },
+          { col: "modrm", w: 78, label: "ModRM", sub: "1 byte", opt: true, tip: "All register fields fully extended." },
+          { col: "sib",   w: 72, label: "SIB",   sub: "1 byte", opt: true, tip: "SIB for memory." },
+          { col: "disp",  w: 78, label: "Disp",  sub: "0/1/2/4B", opt: true, tip: "Displacement." },
+          { col: "imm",   w: 82, label: "Imm",   sub: "0/1B", opt: true, tip: "Optional imm8. Bits[7:4] may encode a 4th register (is4)." },
+        ],
+        examples: [
+          { mnemonic: "VFMADD213PS ymm0, ymm1, ymm2", asm: "; map 2 (0F38) instruction",
+            bytes: [
+              { hex: "C4", field: "C4h",     color: "#c084fc", note: "VEX 3-byte marker" },
+              { hex: "E2", field: "Payload1",color: "#a78bfa", note: "R̄=1 X̄=1 B̄=1 map=010 (0F38)" },
+              { hex: "75", field: "Payload2",color: "#a78bfa", note: "W=0 vvvv=1110(ymm1) L=1(YMM) pp=01(66h)" },
+              { hex: "A8", field: "Opcode",  color: "#38bdf8", note: "VFMADD213PS" },
+              { hex: "C2", field: "ModRM",   color: "#a78bfa", note: "mod=11 reg=ymm0 r/m=ymm2" },
+            ]},
+          { mnemonic: "VPERMILPS ymm0, ymm1, imm8", asm: "; map 3 (0F3A), shuffle control",
+            bytes: [
+              { hex: "C4", field: "C4h",     color: "#c084fc", note: "VEX 3-byte marker" },
+              { hex: "E3", field: "Payload1",color: "#a78bfa", note: "R̄=1 X̄=1 B̄=1 map=011 (0F3A)" },
+              { hex: "7D", field: "Payload2",color: "#a78bfa", note: "W=0 vvvv=1111 L=1(YMM) pp=01(66h)" },
+              { hex: "04", field: "Opcode",  color: "#38bdf8", note: "VPERMILPS" },
+              { hex: "C1", field: "ModRM",   color: "#a78bfa", note: "mod=11 reg=ymm0 r/m=ymm1" },
+              { hex: "E4", field: "Imm8",    color: "#f59e0b", note: "shuffle control byte" },
+            ]},
+        ],
+      },
+    ],
+  },
+  {
+    id: "evex", label: "EVEX", color: "#f472b6",
+    families: [
+      {
+        id: "evex", name: "EVEX (62h)",
+        tag: "AVX-512 / AVX10 · ZMM/YMM/XMM · opmask k0–k7 · broadcast · embedded rounding",
+        color: "#f472b6", bg: "#180410",
+        fields: [
+          { col: "marker", w: 42, label: "62h", sub: "EVEX marker", opt: false,
+            tip: "EVEX marker 62h.\nIn 64-bit mode BOUND is removed, freeing 62h.\nREX and VEX strictly forbidden.\nTotal instruction length ≤ 15 bytes." },
+          { col: "payload", w: 126, label: "P0 · P1 · P2", sub: "3 payload bytes", opt: false,
+            tip: "P0: R̄ X̄ B̄ R̄' · 00 · mm\n• R̄X̄B̄ – inverted REX.RXB\n• R̄' – extends reg to 5 bits (32 regs)\n• mm: 01=map1, 02=map2, 03=map3, 05=MAP5, 06=MAP6\n\nP1: W · v̄v̄v̄v̄ · 1 · pp\n• W – operand size / element type\n• vvvv – inverted NDS register\n• pp – implied mandatory prefix\n\nP2: z · L' · L · b · V̄' · aaa\n• z – 0=merge masking, 1=zero masking\n• L'L – 00=XMM, 01=YMM, 10=ZMM\n• b – memory: broadcast; register: embedded rounding/SAE\n• V̄' – extends vvvv to 5 bits (32 NDS regs)\n• aaa – opmask: k0=no mask, k1–k7=apply mask" },
+          { col: "opcode", w: 84, label: "Opcode", sub: "maps 1–6", opt: false,
+            tip: "Opcode from selected map.\nMAP5/MAP6: AVX-512 FP16 (AVX10):\nVMOVSH, VADDPH, VCVTPH2PS…" },
+          { col: "modrm", w: 78, label: "ModRM", sub: "1 byte", opt: false,
+            tip: "Always present.\nreg extended to 5 bits (R + R') → 32 ZMM registers." },
+          { col: "sib", w: 72, label: "SIB/VSIB", sub: "1 byte", opt: true,
+            tip: "SIB: standard base-index-scale.\nVSIB: index is XMM/YMM/ZMM — used by gather/scatter:\n  VGATHERDPS, VPGATHERDD, VSCATTERQPD…" },
+          { col: "disp", w: 78, label: "Disp*N", sub: "0/1*/4B", opt: true,
+            tip: "Compressed disp8*N:\n1-byte disp8 scaled by tuple size N.\nRange: [−128N, 127N] — compact for common strides.\n4-byte full displacement also available." },
+          { col: "imm", w: 82, label: "Imm8", sub: "0/1B", opt: true,
+            tip: "Optional imm8 for rounding, permute control,\nshift count, comparison predicate." },
+        ],
+        examples: [
+          { mnemonic: "VADDPS zmm0{k1}{z}, zmm1, zmm2", asm: "; 512-bit, masked, zeroing",
+            bytes: [
+              { hex: "62", field: "62h", color: "#f472b6", note: "EVEX marker" },
+              { hex: "F1", field: "P0",  color: "#fb7185", note: "R̄=1 X̄=1 B̄=1 R̄'=1 mm=01" },
+              { hex: "74", field: "P1",  color: "#fb7185", note: "W=0 vvvv=1110(zmm1) pp=00" },
+              { hex: "C9", field: "P2",  color: "#fb7185", note: "z=1(zero) L'L=10(ZMM) b=0 V'=1 aaa=001(k1)" },
+              { hex: "58", field: "Opcode", color: "#38bdf8", note: "VADDPS" },
+              { hex: "C2", field: "ModRM",  color: "#a78bfa", note: "mod=11 reg=zmm0 r/m=zmm2" },
+            ]},
+          { mnemonic: "VADDPS xmm16, xmm17, [rsi]", asm: "; R' extends reg beyond xmm15",
+            bytes: [
+              { hex: "62", field: "62h", color: "#f472b6", note: "EVEX marker" },
+              { hex: "61", field: "P0",  color: "#fb7185", note: "R̄=0(reg≥16) X̄=1 B̄=1 R̄'=1 mm=01" },
+              { hex: "75", field: "P1",  color: "#fb7185", note: "W=0 vvvv→xmm17 pp=01(66h)" },
+              { hex: "40", field: "P2",  color: "#fb7185", note: "z=0 L'L=00(XMM) b=0 V'=0 aaa=000" },
+              { hex: "58", field: "Opcode", color: "#38bdf8", note: "VADDPS" },
+              { hex: "06", field: "ModRM",  color: "#a78bfa", note: "mod=00 reg=xmm16 r/m=rsi" },
+            ]},
+          { mnemonic: "VADDPS zmm0, zmm1, zmm2, {rn-sae}", asm: "; embedded rounding (b=1 on reg src)",
+            bytes: [
+              { hex: "62", field: "62h", color: "#f472b6", note: "EVEX marker" },
+              { hex: "F1", field: "P0",  color: "#fb7185", note: "R̄X̄B̄R̄'=1111 mm=01" },
+              { hex: "74", field: "P1",  color: "#fb7185", note: "W=0 vvvv→zmm1 pp=00" },
+              { hex: "18", field: "P2",  color: "#fb7185", note: "z=0 L'L=10(ZMM) b=1(rn-sae) aaa=0" },
+              { hex: "58", field: "Opcode", color: "#38bdf8", note: "VADDPS" },
+              { hex: "C2", field: "ModRM",  color: "#a78bfa", note: "mod=11 reg=zmm0 r/m=zmm2" },
+            ]},
+        ],
+      },
+    ],
+  },
+  {
+    id: "xop", label: "XOP", color: "#fdba74",
+    families: [
+      {
+        id: "xop", name: "XOP (8Fh)",
+        tag: "AMD only — maps 8/9/A — no Intel support — deprecated Zen 4+",
+        color: "#fdba74", bg: "#130700",
+        fields: [
+          { col: "marker", w: 42, label: "8Fh", sub: "XOP marker", opt: false,
+            tip: "XOP marker 8Fh. AMD-specific; no Intel support.\nConflicts with POP in 32-bit mode — disambiguated by ModRM.reg ≠ 0.\nDeprecated: removed in AMD Zen 4 (2022)." },
+          { col: "payload", w: 126, label: "R̄X̄B̄·mmm  ·  W·v̄v̄v̄v̄·L·pp", sub: "2 payload bytes (same layout as VEX 3B)", opt: false,
+            tip: "Identical layout to VEX 3-byte:\nByte 1: R̄X̄B̄ + map_select\n• map 01000 (8) – integer: VPMACSDD, VPCMOV, VPPERM…\n• map 01001 (9) – shifts/rotates: VPROTB, VPSHAB…\n• map 01010 (A) – bit ops: BEXTR, BLCFILL, BLSR…\nMap values < 8 invalid in XOP (decode as VEX).\n\nByte 2: W.vvvv.L.pp — same meaning as VEX." },
+          { col: "opcode", w: 84, label: "Opcode", sub: "map 8/9/A", opt: false,
+            tip: "Opcode from XOP map 8, 9, or A." },
+          { col: "modrm", w: 78, label: "ModRM", sub: "1 byte", opt: true, tip: "ModRM." },
+          { col: "sib",   w: 72, label: "SIB",   sub: "1 byte", opt: true, tip: "SIB for memory." },
+          { col: "disp",  w: 78, label: "Disp",  sub: "0/1/2/4B", opt: true, tip: "Displacement." },
+          { col: "imm",   w: 82, label: "Imm",   sub: "0/1B", opt: true,
+            tip: "Optional imm8. Bits[7:4] may encode a 4th register (is4)." },
+        ],
+        examples: [
+          { mnemonic: "VPROTB xmm0, xmm1, xmm2", asm: "; variable byte rotate — map 9",
+            bytes: [
+              { hex: "8F", field: "8Fh",     color: "#fdba74", note: "XOP marker" },
+              { hex: "E9", field: "Payload1",color: "#fbbf24", note: "R̄=1 X̄=1 B̄=1 map=01001 (9)" },
+              { hex: "60", field: "Payload2",color: "#fbbf24", note: "W=0 vvvv=1100(xmm3) L=0 pp=00" },
+              { hex: "90", field: "Opcode",  color: "#38bdf8", note: "VPROTB xmm, xmm/m128, xmm" },
+              { hex: "C2", field: "ModRM",   color: "#a78bfa", note: "mod=11 reg=xmm0 r/m=xmm2" },
+            ]},
+          { mnemonic: "VPCMOV xmm0, xmm1, xmm2, xmm3", asm: "; conditional move, 4-reg — map 8",
+            bytes: [
+              { hex: "8F", field: "8Fh",     color: "#fdba74", note: "XOP marker" },
+              { hex: "E8", field: "Payload1",color: "#fbbf24", note: "R̄=1 X̄=1 B̄=1 map=01000 (8)" },
+              { hex: "60", field: "Payload2",color: "#fbbf24", note: "W=0 vvvv=1100(xmm3) L=0 pp=00" },
+              { hex: "A2", field: "Opcode",  color: "#38bdf8", note: "VPCMOV" },
+              { hex: "C2", field: "ModRM",   color: "#a78bfa", note: "mod=11 reg=xmm0 r/m=xmm2" },
+              { hex: "30", field: "Imm8",    color: "#f59e0b", note: "is4: bits[7:4]=xmm3, bits[3:0] ignored" },
+            ]},
+        ],
+      },
+    ],
+  },
+];
+
+// ─── Tooltip ───────────────────────────────────────────────────────────────
+const tooltip = document.getElementById('tooltip');
+
+function showTip(e, text, color) {
+  tooltip.style.display = 'block';
+  tooltip.style.color = color;
+  tooltip.style.borderColor = color + '99';
+  tooltip.textContent = text;
+  moveTip(e);
+}
+function moveTip(e) {
+  const pad = 14, tw = tooltip.offsetWidth, th = tooltip.offsetHeight;
+  let x = e.clientX + pad, y = e.clientY - th / 2;
+  if (x + tw > window.innerWidth - 8) x = e.clientX - tw - pad;
+  if (y < 4) y = 4;
+  if (y + th > window.innerHeight - 4) y = window.innerHeight - th - 4;
+  tooltip.style.left = x + 'px';
+  tooltip.style.top  = y + 'px';
+}
+function hideTip() { tooltip.style.display = 'none'; }
+
+// ─── SVG row builder ───────────────────────────────────────────────────────
+function buildRowSVG(family) {
+  const ns = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(ns, 'svg');
+  svg.setAttribute('viewBox', `0 0 ${SVG_W} ${ROW_H}`);
+  svg.setAttribute('width', '100%');
+  svg.style.display = 'block';
+  svg.style.overflow = 'visible';
+
+  const mk = (tag, attrs) => {
+    const el = document.createElementNS(ns, tag);
+    for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+    return el;
+  };
+
+  // Column guide lines
+  for (const cx of [520, 630, 728, 826, 930]) {
+    svg.appendChild(mk('line', { x1: cx-46, y1: 0, x2: cx-46, y2: ROW_H,
+      stroke: '#0d1525', 'stroke-width': 1 }));
+  }
+
+  // Row tint
+  svg.appendChild(mk('rect', { x: 8, y: 2, width: SVG_W-16, height: ROW_H-4,
+    rx: 6, fill: family.bg }));
+
+  const midY = ROW_H / 2, boxY = (ROW_H - BOX_H) / 2;
+  const sorted = [...family.fields].sort((a,b) => COLS[a.col].cx - COLS[b.col].cx);
+  const left  = f => COLS[f.col].cx - f.w / 2;
+  const right = f => COLS[f.col].cx + f.w / 2;
+
+  // Entry arrow
+  svg.appendChild(mk('line', { x1: 10, y1: midY, x2: left(sorted[0])-5, y2: midY,
+    stroke: family.color, 'stroke-width': 1.2, opacity: 0.28 }));
+
+  // Connectors
+  sorted.forEach((f, i) => {
+    if (i === 0) return;
+    const x1 = right(sorted[i-1]) + 1, x2 = left(f);
+    svg.appendChild(mk('line', { x1, y1: midY, x2: x2-7, y2: midY,
+      stroke: family.color, 'stroke-width': 1.2, opacity: 0.28 }));
+    svg.appendChild(mk('polygon', {
+      points: `${x2-7},${midY-3.5} ${x2},${midY} ${x2-7},${midY+3.5}`,
+      fill: family.color, opacity: 0.38 }));
+  });
+
+  // Exit arrow
+  const lastRight = right(sorted[sorted.length - 1]);
+  svg.appendChild(mk('line', { x1: lastRight+1, y1: midY, x2: SVG_W-16, y2: midY,
+    stroke: family.color, 'stroke-width': 1.2, opacity: 0.28 }));
+  svg.appendChild(mk('polygon', {
+    points: `${SVG_W-22},${midY-3.5} ${SVG_W-15},${midY} ${SVG_W-22},${midY+3.5}`,
+    fill: family.color, opacity: 0.38 }));
+
+  // Field boxes
+  family.fields.forEach(f => {
+    const cx = COLS[f.col].cx, bx = cx - f.w / 2;
+    const g = document.createElementNS(ns, 'g');
+    g.style.cursor = 'crosshair';
+
+    const rect = mk('rect', { x: bx, y: boxY, width: f.w, height: BOX_H, rx: 5,
+      fill: '#06090f', stroke: family.color,
+      'stroke-width': f.opt ? 1.5 : 2,
+      'stroke-dasharray': f.opt ? '5 3' : 'none',
+      opacity: f.opt ? 0.82 : 1 });
+    g.appendChild(rect);
+
+    const label = mk('text', { x: cx, y: boxY + BOX_H/2 + 1,
+      'text-anchor': 'middle', fill: family.color,
+      'font-family': 'JetBrains Mono, Fira Code, monospace',
+      'font-size': f.label.length > 15 ? 8 : 10,
+      'font-weight': 700, opacity: f.opt ? 0.85 : 1 });
+    label.textContent = f.label;
+    g.appendChild(label);
+
+    const sub = mk('text', { x: cx, y: boxY + BOX_H - 5,
+      'text-anchor': 'middle', fill: family.color,
+      'font-family': 'JetBrains Mono, Fira Code, monospace',
+      'font-size': 7.5, opacity: 0.38 });
+    sub.textContent = f.sub;
+    g.appendChild(sub);
+
+    if (f.opt) {
+      const q = mk('text', { x: bx + f.w - 5, y: boxY + 10,
+        'text-anchor': 'end', fill: family.color,
+        'font-family': 'JetBrains Mono, Fira Code, monospace',
+        'font-size': 8, opacity: 0.32 });
+      q.textContent = '?';
+      g.appendChild(q);
+    }
+
+    if (f.tip) {
+      g.addEventListener('mouseenter', e => {
+        rect.setAttribute('fill', family.bg);
+        rect.setAttribute('stroke-width', 2);
+        showTip(e, f.tip, family.color);
+      });
+      g.addEventListener('mousemove', moveTip);
+      g.addEventListener('mouseleave', () => {
+        rect.setAttribute('fill', '#06090f');
+        rect.setAttribute('stroke-width', f.opt ? 1.5 : 2);
+        hideTip();
+      });
+    }
+    svg.appendChild(g);
+  });
+
+  // Name + tag
+  const nameEl = mk('text', { x: 14, y: midY - 5, fill: family.color,
+    'font-family': 'JetBrains Mono, Fira Code, monospace',
+    'font-size': 10.5, 'font-weight': 700 });
+  nameEl.textContent = family.name;
+  svg.appendChild(nameEl);
+
+  const tagEl = mk('text', { x: 14, y: midY + 9, fill: family.color,
+    'font-family': 'JetBrains Mono, Fira Code, monospace',
+    'font-size': 7.5, opacity: 0.42 });
+  tagEl.textContent = family.tag;
+  svg.appendChild(tagEl);
+
+  // Chevron (will be updated by toggle)
+  const chevron = mk('text', { x: SVG_W - 14, y: midY + 4,
+    'text-anchor': 'end', fill: '#1a2d42',
+    'font-family': 'JetBrains Mono, Fira Code, monospace',
+    'font-size': 11, opacity: 0.85 });
+  chevron.textContent = '▼';
+  chevron.dataset.role = 'chevron';
+  svg.appendChild(chevron);
+
+  return svg;
+}
+
+// ─── Examples panel builder ────────────────────────────────────────────────
+function buildExamples(family) {
+  const div = document.createElement('div');
+  div.className = 'examples';
+  div.style.background = '#07090f';
+  div.style.border = `1px solid ${family.color}28`;
+  div.style.borderTop = `2px solid ${family.color}`;
+
+  const hdr = document.createElement('div');
+  hdr.className = 'examples-header';
+
+  const title = document.createElement('span');
+  title.className = 'examples-title';
+  title.style.color = family.color;
+  title.textContent = family.name;
+  hdr.appendChild(title);
+
+  const closeBtn = document.createElement('button');
+  closeBtn.className = 'close-btn';
+  closeBtn.style.color = family.color;
+  closeBtn.style.borderColor = family.color + '35';
+  closeBtn.textContent = 'CLOSE ✕';
+  closeBtn.onclick = e => { e.stopPropagation(); div.remove(); };
+  hdr.appendChild(closeBtn);
+  div.appendChild(hdr);
+
+  family.examples.forEach(ex => {
+    const block = document.createElement('div');
+    block.className = 'example-block';
+
+    const head = document.createElement('div');
+    head.className = 'example-head';
+    head.innerHTML = `<span class="example-mnemonic">${ex.mnemonic}</span>
+                      <span class="example-asm">${ex.asm}</span>`;
+    block.appendChild(head);
+
+    const byteRow = document.createElement('div');
+    byteRow.className = 'byte-row';
+
+    ex.bytes.forEach(b => {
+      const card = document.createElement('div');
+      card.className = 'byte-card';
+
+      const box = document.createElement('div');
+      box.className = 'byte-box';
+      box.style.borderColor = b.color + '50';
+
+      const hex = document.createElement('span');
+      hex.className = 'byte-hex';
+      hex.style.color = b.color;
+      hex.textContent = b.hex;
+      box.appendChild(hex);
+
+      const fl = document.createElement('div');
+      fl.className = 'byte-field-label';
+      fl.style.background = b.color + '15';
+      fl.style.borderTopColor = b.color + '22';
+      fl.style.color = b.color;
+      fl.textContent = b.field;
+      box.appendChild(fl);
+      card.appendChild(box);
+
+      const note = document.createElement('div');
+      note.className = 'byte-note';
+      note.textContent = b.note;
+      card.appendChild(note);
+      byteRow.appendChild(card);
+    });
+
+    const countPill = document.createElement('div');
+    countPill.style.cssText = 'display:flex;align-items:flex-start;padding-top:8px;margin-left:6px';
+    const pill = document.createElement('span');
+    pill.className = 'byte-count';
+    pill.style.background = family.color + '14';
+    pill.style.borderColor = family.color + '28';
+    pill.style.border = `1px solid ${family.color}28`;
+    pill.style.color = family.color;
+    pill.textContent = ex.bytes.length + ' byte(s)';
+    countPill.appendChild(pill);
+    byteRow.appendChild(countPill);
+
+    block.appendChild(byteRow);
+    div.appendChild(block);
+  });
+
+  return div;
+}
+
+// ─── Render ────────────────────────────────────────────────────────────────
+const legendEl = document.getElementById('legend');
+const container = document.getElementById('diagram-inner');
+
+GROUPS.forEach(group => {
+  // Legend item
+  const li = document.createElement('div');
+  li.className = 'legend-item';
+  li.innerHTML = `<div class="legend-dot" style="background:${group.color}"></div>
+                  <span class="legend-label" style="color:${group.color}">${group.label}</span>`;
+  legendEl.appendChild(li);
+});
+
+let prevGroupId = null;
+
+GROUPS.forEach(group => {
+  group.families.forEach(family => {
+    // Group separator
+    if (prevGroupId && prevGroupId !== group.id) {
+      const sep = document.createElement('div');
+      sep.className = 'group-divider';
+      sep.innerHTML = `<div class="line" style="background:${group.color}1a"></div>
+                       <span class="label" style="color:${group.color}">${group.label}</span>
+                       <div class="line" style="background:${group.color}1a"></div>`;
+      container.appendChild(sep);
+    }
+    prevGroupId = group.id;
+
+    // Row wrapper
+    const wrap = document.createElement('div');
+    wrap.className = 'row-wrap';
+
+    const svgWrap = document.createElement('div');
+    svgWrap.className = 'row-svg-wrap';
+    svgWrap.style.minWidth = '820px';
+
+    const svg = buildRowSVG(family);
+    svgWrap.appendChild(svg);
+
+    let open = false;
+
+    svgWrap.addEventListener('click', () => {
+      const chevron = svg.querySelector('[data-role="chevron"]');
+      open = !open;
+      if (open) {
+        chevron.setAttribute('fill', family.color);
+        chevron.textContent = '▲';
+        wrap.appendChild(buildExamples(family));
+      } else {
+        chevron.setAttribute('fill', '#1a2d42');
+        chevron.textContent = '▼';
+        const panel = wrap.querySelector('.examples');
+        if (panel) panel.remove();
+      }
+    });
+
+    // Re-close when close button removes panel from outside toggle
+    wrap.addEventListener('click', e => {
+      if (!wrap.querySelector('.examples')) {
+        open = false;
+        const chevron = svg.querySelector('[data-role="chevron"]');
+        if (chevron) {
+          chevron.setAttribute('fill', '#1a2d42');
+          chevron.textContent = '▼';
+        }
+      }
+    });
+
+    wrap.appendChild(svgWrap);
+    container.appendChild(wrap);
+  });
+});
+</script>
+</body>
+</html>
