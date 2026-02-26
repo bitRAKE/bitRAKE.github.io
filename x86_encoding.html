@@ -1,9 +1,10 @@
 <!DOCTYPE html>
+
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>x86-64 Instruction Encoding Syntax</title>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>x86-64 Encoding Atlas — Legacy · VEX · EVEX · XOP</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap');
 
@@ -195,58 +196,144 @@
     display: none;
     z-index: 1000;
     background: #09101e;
-    border-radius: 6px;
+    border-radius: 8px;
     padding: 10px 11px 10px;
-    max-width: 300px;
-    box-shadow: 0 6px 24px #000;
+    max-width: 320px;
+    box-shadow: 0 10px 30px #000;
     font-size: 9.5px;
-    line-height: 1.5;
+    line-height: 1.55;
     white-space: pre-wrap;
+    border: 1px solid #1a2a41;
   }
+  #tooltip.pinned {
+    pointer-events: auto;
+    border-color: #2b4364;
+  }
+  #tooltip .tooltip-head{
+    display:none;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    margin:-2px 0 8px 0;
+    padding:0 0 8px 0;
+    border-bottom:1px solid #13243a;
+  }
+  #tooltip.pinned .tooltip-head{ display:flex; }
+  #tooltip .tooltip-badge{
+    font-size:8px;
+    letter-spacing:.12em;
+    color:#9fb5d4;
+    opacity:.95;
+  }
+  #tooltip .tooltip-close{
+    cursor:pointer;
+    border:1px solid #203750;
+    background:transparent;
+    color:#9fb5d4;
+    border-radius:6px;
+    width:22px;height:22px;
+    line-height:18px;
+    font-size:14px;
+  }
+  #tooltip .tooltip-close:hover{ filter:brightness(1.2); }
+  #tooltip .tooltip-body{ color:inherit; }
+
+  #footer .footer-note{
+    margin: 10px 0 10px;
+    font-size: 9px;
+    letter-spacing: .06em;
+    color: #9fb5d4;
+    opacity: .9;
+  }
+  #footer details.footer-validate{
+    margin-top: 12px;
+    border: 1px solid #0d1526;
+    background: #050915;
+    border-radius: 10px;
+    padding: 10px 12px;
+  }
+  #footer details.footer-validate summary{
+    cursor: pointer;
+    font-size: 9.5px;
+    letter-spacing: .05em;
+    color: #cfe0f7;
+    list-style: none;
+  }
+  #footer details.footer-validate summary::-webkit-details-marker { display:none; }
+  #footer pre.validate-code{
+    margin-top: 10px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: #070c18;
+    border: 1px solid #0f1b30;
+    overflow: auto;
+    font-size: 9px;
+    line-height: 1.5;
+    color: #dde3ec;
+  }
+
+  #footer .footer-note, #footer details.footer-validate{ flex: 1 1 100%; }
 </style>
 </head>
 <body>
-
 <div id="header">
-  <div>
-    <h1>x86-64 Instruction Encoding Syntax</h1>
-    <p>BYTE TRAJECTORY REFERENCE · HOVER FIELD FOR DETAILS · CLICK ROW FOR EXAMPLES · DASHED BORDER = OPTIONAL</p>
-  </div>
-  <div id="legend"></div>
+<div>
+<h1>x86-64 Encoding Atlas</h1>
+<p>BYTE TRAJECTORY REFERENCE · HOVER FIELD FOR DETAILS · CLICK FIELD TO PIN · CLICK ROW FOR EXAMPLES · DASHED BORDER = OPTIONAL</p>
 </div>
-
+<div id="legend"></div>
+</div>
 <div id="diagram">
-  <div id="col-headers">
-    <div class="col-hdr">PREFIX / MARKER</div>
-    <div class="col-hdr">PAYLOAD / ESCAPE</div>
-    <div class="col-hdr">OPCODE</div>
-    <div class="col-hdr">ModRM</div>
-    <div class="col-hdr">SIB</div>
-    <div class="col-hdr">DISP</div>
-    <div class="col-hdr">IMM</div>
-  </div>
-  <div id="diagram-inner"></div>
+<div id="col-headers">
+<div class="col-hdr">PREFIX / MARKER</div>
+<div class="col-hdr">PAYLOAD / ESCAPE</div>
+<div class="col-hdr">OPCODE</div>
+<div class="col-hdr">ModRM</div>
+<div class="col-hdr">SIB</div>
+<div class="col-hdr">DISP</div>
+<div class="col-hdr">IMM</div>
 </div>
-
-<div id="footer">
-  <span class="footer-note">Max length: 15 bytes</span>
-  <span class="footer-note">REX / legacy prefixes forbidden with VEX · EVEX · XOP</span>
-  <span class="footer-note">XOP deprecated AMD Zen 4+</span>
-  <span class="footer-note">EVEX MAP5/MAP6 = AVX-512 FP16 (AVX10)</span>
-  <div class="req-legend">
-    <div class="req-item">
-      <svg width="36" height="16"><rect x="1" y="2" width="34" height="12" rx="3" fill="#06090f" stroke="#6b7a8d" stroke-width="2"/></svg>
+<div id="diagram-inner"></div>
+</div>
+<div id="footer"><div class="footer-note">Tooltip: hover to preview · click a field to pin · ESC or × to unpin</div>
+<span class="footer-note">Max length: 15 bytes</span>
+<span class="footer-note">REX / legacy prefixes forbidden with VEX · EVEX · XOP</span>
+<span class="footer-note">XOP removed on AMD Zen and later (Bulldozer-era only)</span>
+<span class="footer-note">EVEX MAP5/MAP6: used by many AVX-512 FP16 encodings (and AVX10.x FP16)</span>
+<div class="req-legend">
+<div class="req-item">
+<svg height="16" width="36"><rect fill="#06090f" height="12" rx="3" stroke="#6b7a8d" stroke-width="2" width="34" x="1" y="2"></rect></svg>
       required
     </div>
-    <div class="req-item">
-      <svg width="36" height="16"><rect x="1" y="2" width="34" height="12" rx="3" fill="#06090f" stroke="#6b7a8d" stroke-width="1.5" stroke-dasharray="5 3" opacity="0.7"/></svg>
+<div class="req-item">
+<svg height="16" width="36"><rect fill="#06090f" height="12" opacity="0.7" rx="3" stroke="#6b7a8d" stroke-dasharray="5 3" stroke-width="1.5" width="34" x="1" y="2"></rect></svg>
       optional
     </div>
-  </div>
 </div>
+<details class="footer-validate"><summary>Validation gate (recommended for maintaining byte-accurate examples)</summary><pre class="validate-code"># Minimal round-trip check idea (Linux/macOS)
+# 1) Assemble the examples
+# 2) objdump the bytes and compare against the presentation data
 
-<div id="tooltip"></div>
+cat &gt; validate.s &lt;&lt;'EOF'
+.intel_syntax noprefix
+.text
+.globl _start
+_start:
+  # add one line per example you want to validate
+  vaddps xmm16, xmm17, XMMWORD PTR [rsi]
+  vprotb xmm0, xmm1, xmm2
+EOF
 
+as --64 validate.s -o validate.o
+objdump -d validate.o
+</pre></details></div>
+<div aria-hidden="true" id="tooltip" role="tooltip">
+<div class="tooltip-head">
+<span class="tooltip-badge">PINNED</span>
+<button aria-label="Unpin tooltip" class="tooltip-close" type="button">×</button>
+</div>
+<div class="tooltip-body"></div>
+</div>
 <script>
 // ─── Data ──────────────────────────────────────────────────────────────────
 const COLS = {
@@ -304,6 +391,72 @@ const GROUPS = [
               { hex: "88", field: "Opcode", color: "#38bdf8", note: "MOV r/m8, r8" },
               { hex: "46", field: "ModRM",  color: "#a78bfa", note: "mod=01 reg=al(0) r/m=rsi(6)" },
               { hex: "10", field: "Disp",   color: "#f472b6", note: "disp8 = +0x10" },
+            ]},
+        ],
+      },
+
+      {
+        id: "addr", name: "Addressing traps", 
+        tag: "ModRM/SIB corner cases (rsp/rbp/r13/rip/addr32)",
+        color: "#7dd3fc", bg: "#040c18",
+        fields: [
+          { col: "legpfx", w: 78, label: "Legacy Pfx", sub: "0–4 bytes", opt: true,
+            tip: "Includes address-size override (67h) and operand-size override (66h).\nThese are still legal with legacy encodings and can change decoding rules." },
+          { col: "rex", w: 42, label: "REX", sub: "40h–4Fh", opt: true,
+            tip: "REX.WRXB (one byte).\nTraps here: B extends base (ModRM.r/m or SIB.base), X extends SIB.index." },
+          { col: "opcode", w: 84, label: "Opcode", sub: "1 byte", opt: false,
+            tip: "Example opcodes here are MOV (8Bh/89h). Structure is the point — not the mnemonic." },
+          { col: "modrm", w: 78, label: "ModRM", sub: "1 byte", opt: true,
+            tip: "mod(2) · reg(3) · r/m(3)\nKey traps:\n• mod≠11 & r/m=100b → SIB is present\n• mod=00 & r/m=101b → disp32 (RIP-relative in 64-bit mode)\n• base=RBP/R13 cannot use mod=00 without a disp" },
+          { col: "sib", w: 72, label: "SIB", sub: "1 byte", opt: true,
+            tip: "scale(2) · index(3) · base(3)\nKey traps:\n• base=100b selects RSP/R12 (and often forces SIB)\n• index=100b means “no index” (not RSP)\n• base=101b with mod=00 implies disp32 (no base)" },
+          { col: "disp", w: 78, label: "Disp", sub: "0/1/2/4B", opt: true,
+            tip: "Many addressing traps resolve by emitting disp8=00 (a real byte) to avoid the mod=00 special cases." },
+          { col: "imm", w: 82, label: "Imm", sub: "—", opt: true,
+            tip: "Not used in these examples." },
+        ],
+        examples: [
+          { mnemonic: "MOV [rsp+0x20], rax", asm: "; RSP base forces SIB",
+            bytes: [
+              { hex: "48", field: "REX",    color: "#93c5fd", note: "W=1 → r/m64, r64" },
+              { hex: "89", field: "Opcode", color: "#38bdf8", note: "MOV r/m64, r64" },
+              { hex: "44", field: "ModRM",  color: "#a78bfa", note: "mod=01 reg=rax r/m=100 → SIB follows" },
+              { hex: "24", field: "SIB",    color: "#c4b5fd", note: "scale=0 index=100(no index) base=100(rsp)" },
+              { hex: "20", field: "Disp8",  color: "#fbbf24", note: "+0x20" },
+            ]},
+          { mnemonic: "MOV eax, [rsp]", asm: "; [rsp] also forces SIB",
+            bytes: [
+              { hex: "8B", field: "Opcode", color: "#38bdf8", note: "MOV r32, r/m32" },
+              { hex: "04", field: "ModRM",  color: "#a78bfa", note: "mod=00 reg=eax r/m=100 → SIB follows" },
+              { hex: "24", field: "SIB",    color: "#c4b5fd", note: "index=100(no index) base=100(rsp)" },
+            ]},
+          { mnemonic: "MOV eax, [rbp]", asm: "; RBP cannot use mod=00 → disp8=0",
+            bytes: [
+              { hex: "8B", field: "Opcode", color: "#38bdf8", note: "MOV r32, r/m32" },
+              { hex: "45", field: "ModRM",  color: "#a78bfa", note: "mod=01 reg=eax r/m=101(rbp)" },
+              { hex: "00", field: "Disp8",  color: "#fbbf24", note: "disp8=0 (required)" },
+            ]},
+          { mnemonic: "MOV eax, [r13]", asm: "; same trap as RBP (requires disp)",
+            bytes: [
+              { hex: "41", field: "REX",    color: "#93c5fd", note: "B=1 → base=r13" },
+              { hex: "8B", field: "Opcode", color: "#38bdf8", note: "MOV r32, r/m32" },
+              { hex: "45", field: "ModRM",  color: "#a78bfa", note: "mod=01 reg=eax r/m=101(+B → r13)" },
+              { hex: "00", field: "Disp8",  color: "#fbbf24", note: "disp8=0 (required)" },
+            ]},
+          { mnemonic: "MOV eax, [rip+0x11223344]", asm: "; mod=00 r/m=101 → disp32",
+            bytes: [
+              { hex: "8B", field: "Opcode", color: "#38bdf8", note: "MOV r32, r/m32" },
+              { hex: "05", field: "ModRM",  color: "#a78bfa", note: "mod=00 reg=eax r/m=101 → disp32 (RIP-rel)" },
+              { hex: "44", field: "Disp32", color: "#fbbf24", note: "0x11223344 (low)" },
+              { hex: "33", field: "Disp32", color: "#fbbf24", note: "" },
+              { hex: "22", field: "Disp32", color: "#fbbf24", note: "" },
+              { hex: "11", field: "Disp32", color: "#fbbf24", note: "" },
+            ]},
+          { mnemonic: "MOV eax, [eax] (addr32)", asm: "; 67h overrides address size in 64-bit mode",
+            bytes: [
+              { hex: "67", field: "Pfx",    color: "#7dd3fc", note: "Address-size override (addr32)" },
+              { hex: "8B", field: "Opcode", color: "#38bdf8", note: "MOV r32, r/m32" },
+              { hex: "00", field: "ModRM",  color: "#a78bfa", note: "mod=00 reg=eax r/m=eax" },
             ]},
         ],
       },
@@ -464,7 +617,7 @@ const GROUPS = [
         color: "#a78bfa", bg: "#0d0620",
         fields: [
           { col: "marker", w: 42, label: "C5h", sub: "VEX 2B marker", opt: false,
-            tip: "VEX 2-byte prefix marker C5h.\nAll legacy prefixes and REX are FORBIDDEN.\nThe payload encodes what REX/mandatory-prefix would have been.\nIn 32-bit mode C5h = LDS — CPU disambiguates via ModRM.mod." },
+            tip: "VEX 2-byte prefix marker C5h.\nAll legacy prefixes and REX are FORBIDDEN.\nThe payload encodes what REX/mandatory-prefix would have been.\nIn 32-bit mode 0xC5 can also start LDS; VEX2 is recognized when the following byte matches the VEX2 payload pattern (bits[7:6]=11)." },
           { col: "payload", w: 126, label: "R̄ · v̄v̄v̄v̄ · L · pp", sub: "1 payload byte", opt: false,
             tip: "One payload byte, 8 bits:\n• [7] R̄   inverted REX.R\n• [6:3] v̄v̄v̄v̄  inverted vvvv — 2nd source register\n• [2] L   0=128b XMM, 1=256b YMM\n• [1:0] pp  implied mandatory prefix:\n   00=none  01=66h  10=F3h  11=F2h\n\nMap 1 only. No REX.W / X / B → use 3-byte for those." },
           { col: "opcode", w: 84, label: "Opcode", sub: "map 1", opt: false,
@@ -563,25 +716,25 @@ const GROUPS = [
           { mnemonic: "VADDPS zmm0{k1}{z}, zmm1, zmm2", asm: "; 512-bit, masked, zeroing",
             bytes: [
               { hex: "62", field: "62h", color: "#f472b6", note: "EVEX marker" },
-              { hex: "F1", field: "P0",  color: "#fb7185", note: "R̄=1 X̄=1 B̄=1 R̄'=1 mm=01" },
+              { hex: "F1", field: "P0",  color: "#fb7185", note: "R̄=1 X̄=1 B̄=1 R̄'=1 mmm=001" },
               { hex: "74", field: "P1",  color: "#fb7185", note: "W=0 vvvv=1110(zmm1) pp=00" },
               { hex: "C9", field: "P2",  color: "#fb7185", note: "z=1(zero) L'L=10(ZMM) b=0 V'=1 aaa=001(k1)" },
               { hex: "58", field: "Opcode", color: "#38bdf8", note: "VADDPS" },
               { hex: "C2", field: "ModRM",  color: "#a78bfa", note: "mod=11 reg=zmm0 r/m=zmm2" },
             ]},
-          { mnemonic: "VADDPS xmm16, xmm17, [rsi]", asm: "; R' extends reg beyond xmm15",
+          { mnemonic: "VADDPS xmm16, xmm17, [rsi]", asm: "; EVEX extends to 32 SIMD regs",
             bytes: [
               { hex: "62", field: "62h", color: "#f472b6", note: "EVEX marker" },
-              { hex: "61", field: "P0",  color: "#fb7185", note: "R̄=0(reg≥16) X̄=1 B̄=1 R̄'=1 mm=01" },
-              { hex: "75", field: "P1",  color: "#fb7185", note: "W=0 vvvv→xmm17 pp=01(66h)" },
-              { hex: "40", field: "P2",  color: "#fb7185", note: "z=0 L'L=00(XMM) b=0 V'=0 aaa=000" },
+              { hex: "E1", field: "P0",  color: "#fb7185", note: "mmm=001(0F map) · R̄X̄B̄=111 · R̄\'=0 (reg≥16)" },
+              { hex: "74", field: "P1",  color: "#fb7185", note: "W=0 · vvvv→xmm17 · pp=00" },
+              { hex: "00", field: "P2",  color: "#fb7185", note: "z=0 · L\'L=00(XMM) · b=0 · V\' (vvvv[4]) · aaa=000" },
               { hex: "58", field: "Opcode", color: "#38bdf8", note: "VADDPS" },
-              { hex: "06", field: "ModRM",  color: "#a78bfa", note: "mod=00 reg=xmm16 r/m=rsi" },
+              { hex: "06", field: "ModRM",  color: "#a78bfa", note: "mod=00 reg=xmm16 r/m=[rsi]" },
             ]},
           { mnemonic: "VADDPS zmm0, zmm1, zmm2, {rn-sae}", asm: "; embedded rounding (b=1 on reg src)",
             bytes: [
               { hex: "62", field: "62h", color: "#f472b6", note: "EVEX marker" },
-              { hex: "F1", field: "P0",  color: "#fb7185", note: "R̄X̄B̄R̄'=1111 mm=01" },
+              { hex: "F1", field: "P0",  color: "#fb7185", note: "R̄X̄B̄R̄'=1111 mmm=001" },
               { hex: "74", field: "P1",  color: "#fb7185", note: "W=0 vvvv→zmm1 pp=00" },
               { hex: "18", field: "P2",  color: "#fb7185", note: "z=0 L'L=10(ZMM) b=1(rn-sae) aaa=0" },
               { hex: "58", field: "Opcode", color: "#38bdf8", note: "VADDPS" },
@@ -612,22 +765,22 @@ const GROUPS = [
             tip: "Optional imm8. Bits[7:4] may encode a 4th register (is4)." },
         ],
         examples: [
-          { mnemonic: "VPROTB xmm0, xmm1, xmm2", asm: "; variable byte rotate — map 9",
+          { mnemonic: "VPROTB xmm0, xmm1, xmm2", asm: "; XOP (Bulldozer-era AMD), 3-operand form",
             bytes: [
-              { hex: "8F", field: "8Fh",     color: "#fdba74", note: "XOP marker" },
-              { hex: "E9", field: "Payload1",color: "#fbbf24", note: "R̄=1 X̄=1 B̄=1 map=01001 (9)" },
-              { hex: "60", field: "Payload2",color: "#fbbf24", note: "W=0 vvvv=1100(xmm3) L=0 pp=00" },
-              { hex: "90", field: "Opcode",  color: "#38bdf8", note: "VPROTB xmm, xmm/m128, xmm" },
-              { hex: "C2", field: "ModRM",   color: "#a78bfa", note: "mod=11 reg=xmm0 r/m=xmm2" },
+              { hex: "8F", field: "8Fh",     color: "#fb7185", note: "XOP marker" },
+              { hex: "E9", field: "P1",      color: "#fb7185", note: "R̄X̄B̄ + mmmmm=01001 (map9)" },
+              { hex: "68", field: "P2",      color: "#fb7185", note: "W=0 vvvv→xmm1 L=0 pp=00" },
+              { hex: "90", field: "Opcode",  color: "#38bdf8", note: "VPROTB" },
+              { hex: "C1", field: "ModRM",   color: "#a78bfa", note: "mod=11 reg=xmm0 r/m=xmm2" },
             ]},
-          { mnemonic: "VPCMOV xmm0, xmm1, xmm2, xmm3", asm: "; conditional move, 4-reg — map 8",
+          { mnemonic: "VPCMOV xmm0, xmm1, xmm2, xmm3", asm: "; XOP is4: imm8[7:4] selects 4th reg",
             bytes: [
-              { hex: "8F", field: "8Fh",     color: "#fdba74", note: "XOP marker" },
-              { hex: "E8", field: "Payload1",color: "#fbbf24", note: "R̄=1 X̄=1 B̄=1 map=01000 (8)" },
-              { hex: "60", field: "Payload2",color: "#fbbf24", note: "W=0 vvvv=1100(xmm3) L=0 pp=00" },
-              { hex: "A2", field: "Opcode",  color: "#38bdf8", note: "VPCMOV" },
+              { hex: "8F", field: "8Fh",     color: "#fb7185", note: "XOP marker" },
+              { hex: "E8", field: "P1",      color: "#fb7185", note: "R̄X̄B̄ + mmmmm=01000 (map8)" },
+              { hex: "70", field: "P2",      color: "#fb7185", note: "W=0 vvvv→xmm1 L=0 pp=00" },
+              { hex: "A2", field: "Opcode",  color: "#38bdf8", note: "VPCMOV (is4)" },
               { hex: "C2", field: "ModRM",   color: "#a78bfa", note: "mod=11 reg=xmm0 r/m=xmm2" },
-              { hex: "30", field: "Imm8",    color: "#f59e0b", note: "is4: bits[7:4]=xmm3, bits[3:0] ignored" },
+              { hex: "30", field: "imm8",    color: "#fbbf24", note: "imm[7:4]=3 → xmm3" },
             ]},
         ],
       },
@@ -635,26 +788,80 @@ const GROUPS = [
   },
 ];
 
-// ─── Tooltip ───────────────────────────────────────────────────────────────
+// ─── Tooltip (hover + pin) ─────────────────────────────────────────────────
 const tooltip = document.getElementById('tooltip');
+const tooltipBody = tooltip.querySelector('.tooltip-body');
+const tooltipClose = tooltip.querySelector('.tooltip-close');
+
+let tipPinned = false;
+let pinnedText = '';
+let pinnedColor = '#dde3ec';
+
+function setTip(text, color) {
+  pinnedColor = color;
+  tooltip.style.color = color;
+  tooltip.style.borderColor = color + '66';
+  tooltipBody.textContent = text;
+  tooltip.setAttribute('aria-hidden', 'false');
+}
 
 function showTip(e, text, color) {
+  if (tipPinned) return;
+  tooltip.classList.remove('pinned');
   tooltip.style.display = 'block';
-  tooltip.style.color = color;
-  tooltip.style.borderColor = color + '99';
-  tooltip.textContent = text;
-  moveTip(e);
+  setTip(text, color);
+  moveTip(e, true);
 }
-function moveTip(e) {
-  const pad = 14, tw = tooltip.offsetWidth, th = tooltip.offsetHeight;
-  let x = e.clientX + pad, y = e.clientY - th / 2;
+
+function moveTip(e, force=false) {
+  if (tipPinned && !force) return;
+  const pad = 14;
+  const tw = tooltip.offsetWidth;
+  const th = tooltip.offsetHeight;
+  let x = e.clientX + pad;
+  let y = e.clientY - th / 2;
   if (x + tw > window.innerWidth - 8) x = e.clientX - tw - pad;
   if (y < 4) y = 4;
   if (y + th > window.innerHeight - 4) y = window.innerHeight - th - 4;
   tooltip.style.left = x + 'px';
   tooltip.style.top  = y + 'px';
 }
-function hideTip() { tooltip.style.display = 'none'; }
+
+function hideTip() {
+  if (tipPinned) return;
+  tooltip.style.display = 'none';
+  tooltip.setAttribute('aria-hidden', 'true');
+}
+
+function pinTip(e, text, color) {
+  tipPinned = true;
+  pinnedText = text;
+  tooltip.classList.add('pinned');
+  tooltip.style.display = 'block';
+  setTip(text, color);
+  moveTip(e, true);
+}
+
+function unpinTip() {
+  tipPinned = false;
+  pinnedText = '';
+  tooltip.classList.remove('pinned');
+  tooltip.style.display = 'none';
+  tooltip.setAttribute('aria-hidden', 'true');
+}
+
+function togglePin(e, text, color) {
+  if (tipPinned && pinnedText === text) { unpinTip(); return; }
+  pinTip(e, text, color);
+}
+
+tooltipClose.addEventListener('click', (e) => { e.stopPropagation(); unpinTip(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') unpinTip(); });
+document.addEventListener('click', (e) => {
+  if (!tipPinned) return;
+  if (tooltip.contains(e.target)) return;
+  unpinTip();
+});
 
 // ─── SVG row builder ───────────────────────────────────────────────────────
 function buildRowSVG(family) {
@@ -757,6 +964,10 @@ function buildRowSVG(family) {
         rect.setAttribute('fill', '#06090f');
         rect.setAttribute('stroke-width', f.opt ? 1.5 : 2);
         hideTip();
+      });
+      g.addEventListener('click', e => {
+        e.stopPropagation();
+        togglePin(e, f.tip, family.color);
       });
     }
     svg.appendChild(g);
