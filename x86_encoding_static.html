@@ -1,0 +1,920 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>x86-64 Encoding Atlas</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #040710;
+    --border: #0d1526;
+    --font: 'JetBrains Mono', 'Fira Code', monospace;
+  }
+
+  body {
+    background: var(--bg);
+    color: #dde3ec;
+    font-family: var(--font);
+    min-height: 100vh;
+  }
+
+  #header {
+    padding: 14px 22px 12px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+  #header h1 { font-size: 13px; font-weight: 700; letter-spacing: .03em; }
+  #header p { font-size: 8.5px; margin-top: 3px; letter-spacing: .08em; color: #2a3a50; }
+
+  #legend {
+    margin-left: auto;
+    display: flex;
+    gap: 14px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .legend-item { display: flex; align-items: center; gap: 5px; }
+  .legend-dot { width: 7px; height: 7px; border-radius: 1.5px; }
+  .legend-label { font-size: 8.5px; letter-spacing: .07em; }
+
+  #diagram { overflow-x: auto; }
+  #diagram-inner { min-width: 820px; padding: 0 12px 12px; }
+
+  #col-headers {
+    display: grid;
+    grid-template-columns: 162px 214px 84px 78px 72px 78px 82px auto;
+    padding: 7px 8px 4px;
+    min-width: 820px;
+  }
+  .col-hdr {
+    font-size: 7.5px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: #182233;
+    text-align: center;
+  }
+
+  .group-divider {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 0 4px;
+  }
+  .group-divider .line { flex: 1; height: 1px; }
+  .group-divider .label {
+    font-size: 7.5px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    opacity: .55;
+  }
+
+  .row-wrap { position: relative; }
+  .row-wrap + .row-wrap { margin-top: 2px; }
+
+  .row-svg-wrap {
+    cursor: pointer;
+    user-select: none;
+    list-style: none;
+    position: relative;
+  }
+  .row-svg-wrap::-webkit-details-marker { display: none; }
+  .row-svg-wrap svg { display: block; width: 100%; overflow: visible; }
+
+  .row-chevron {
+    position: absolute;
+    right: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #1a2d42;
+    font-size: 11px;
+    transition: transform .16s ease, color .16s ease;
+    pointer-events: none;
+    opacity: .9;
+  }
+  .row-wrap[open] .row-chevron {
+    transform: translateY(-50%) rotate(180deg);
+    color: #4d6683;
+  }
+
+  .examples {
+    border-radius: 0 0 8px 8px;
+    padding: 16px 20px 18px;
+    animation: slideDown .16s ease-out;
+    margin: -1px 8px 0;
+  }
+  @keyframes slideDown {
+    from { opacity: 0; transform: translateY(-6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .examples-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+    gap: 8px;
+  }
+  .examples-title { font-size: 11px; font-weight: 700; letter-spacing: .04em; }
+  .example-count {
+    font-size: 8px;
+    color: #30526c;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+  }
+
+  .example-block { margin-bottom: 18px; }
+  .example-block:last-child { margin-bottom: 0; }
+
+  .example-head {
+    display: flex;
+    gap: 10px;
+    align-items: baseline;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+  }
+  .example-mnemonic { font-size: 12px; font-weight: 700; color: #e2e8f0; }
+  .example-asm { font-size: 10px; color: #2d3f55; }
+
+  .byte-row {
+    display: flex;
+    gap: 2px;
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+  .byte-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-right: 2px;
+    margin-bottom: 2px;
+  }
+  .byte-box {
+    background: #0c111f;
+    border-radius: 6px;
+    width: 68px;
+    padding: 6px 0 22px;
+    text-align: center;
+    position: relative;
+    border: 1px solid #1a2c42;
+  }
+  .byte-hex { font-size: 17px; font-weight: 700; }
+  .byte-field-label {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    border-radius: 0 0 5px 5px;
+    padding: 2px 3px;
+    font-size: 7px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-align: center;
+    border-top: 1px solid transparent;
+  }
+  .byte-note {
+    margin-top: 4px;
+    color: #384a5f;
+    font-size: 7.8px;
+    width: 68px;
+    line-height: 1.35;
+    padding-left: 1px;
+    min-height: 12px;
+    white-space: pre-wrap;
+  }
+  .byte-count {
+    font-size: 9px;
+    padding: 3px 9px;
+    border-radius: 12px;
+    margin-top: 8px;
+    margin-left: 6px;
+    border: 1px solid transparent;
+  }
+
+  .field-notes {
+    margin-top: 12px;
+    border: 1px solid #122238;
+    border-radius: 8px;
+    background: #060d1a;
+    padding: 7px 9px 9px;
+  }
+  .field-notes > summary {
+    list-style: none;
+    cursor: pointer;
+    font-size: 8px;
+    letter-spacing: .05em;
+    color: #6a85a2;
+    text-transform: uppercase;
+  }
+  .field-notes > summary::-webkit-details-marker { display: none; }
+  .field-notes-list {
+    margin-top: 8px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 7px;
+  }
+  .field-note-item {
+    border: 1px solid #112239;
+    border-radius: 6px;
+    background: #050b16;
+    padding: 6px 7px;
+  }
+  .field-note-title {
+    font-size: 8px;
+    font-weight: 700;
+    color: #89a7c7;
+    margin-bottom: 4px;
+  }
+  .field-note-tip {
+    font-size: 8px;
+    line-height: 1.38;
+    color: #7e97b3;
+    white-space: pre-wrap;
+  }
+
+  #footer {
+    padding: 8px 22px 16px;
+    border-top: 1px solid #0a1020;
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .footer-note { color: #14243a; font-size: 8px; flex: 1 1 100%; }
+
+  details.footer-validate {
+    flex: 1 1 100%;
+    border: 1px solid #13233a;
+    background: #060d19;
+    border-radius: 10px;
+    padding: 8px 10px;
+    color: #c5d2df;
+  }
+  details.footer-validate summary {
+    list-style: none;
+    cursor: pointer;
+    font-size: 8.5px;
+    color: #91a8c2;
+    letter-spacing: .05em;
+  }
+  details.footer-validate summary::-webkit-details-marker { display: none; }
+  details.footer-validate pre {
+    margin-top: 8px;
+    overflow-x: auto;
+    font-size: 9px;
+    line-height: 1.45;
+    color: #dde3ec;
+    white-space: pre;
+  }
+
+  @media (max-width: 860px) {
+    #header { padding: 12px 12px 10px; }
+    #diagram-inner { min-width: 760px; padding: 0 8px 10px; }
+    #footer { padding: 8px 12px 14px; }
+  }
+</style>
+
+</head>
+<body class="mode-shared">
+<div id="header">
+  <div>
+    <h1>x86-64 Encoding Atlas</h1>
+    <p>BYTE TRAJECTORY REFERENCE · HOVER FIELD FOR DETAILS · CLICK FIELD TO PIN · CLICK ROW FOR EXAMPLES · DASHED BORDER = OPTIONAL</p>
+  </div>
+  <div id="legend">
+    <div class="legend-item"><span class="legend-dot" style="background:#7dd3fc"></span><span class="legend-label" style="color:#7dd3fc">LEGACY</span></div>
+<div class="legend-item"><span class="legend-dot" style="background:#a78bfa"></span><span class="legend-label" style="color:#a78bfa">VEX</span></div>
+<div class="legend-item"><span class="legend-dot" style="background:#f472b6"></span><span class="legend-label" style="color:#f472b6">EVEX</span></div>
+<div class="legend-item"><span class="legend-dot" style="background:#fdba74"></span><span class="legend-label" style="color:#fdba74">XOP</span></div>
+  </div>
+</div>
+<main id="diagram">
+  
+  <div id="col-headers">
+    <div class="col-hdr"></div>
+<div class="col-hdr">PREFIX / MARKER</div>
+<div class="col-hdr">PAYLOAD / ESCAPE</div>
+<div class="col-hdr">OPCODE</div>
+<div class="col-hdr">ModRM</div>
+<div class="col-hdr">SIB</div>
+<div class="col-hdr">DISP</div>
+<div class="col-hdr">IMM</div>
+  </div>
+  <div id="diagram-inner">
+    <details class="family row-wrap" id="family-prim" data-family-id="prim" data-group-id="legacy" data-search="primary map no escape — most common instructions legacy pfx rex opcode modrm sib disp imm add rax, rcx push rbx mov [rsi+0x10], al ; 64-bit register add ; no rex needed ; byte store with disp8" >
+  <summary class="row-svg-wrap" aria-label="Primary map">
+    <svg viewBox="0 0 1040 68" width="100%" aria-hidden="true" focusable="false"><line x1="474" y1="0" x2="474" y2="68" stroke="#0d1525" stroke-width="1"></line><line x1="584" y1="0" x2="584" y2="68" stroke="#0d1525" stroke-width="1"></line><line x1="682" y1="0" x2="682" y2="68" stroke="#0d1525" stroke-width="1"></line><line x1="780" y1="0" x2="780" y2="68" stroke="#0d1525" stroke-width="1"></line><line x1="884" y1="0" x2="884" y2="68" stroke="#0d1525" stroke-width="1"></line><rect x="8" y="2" width="1024" height="64" rx="6" fill="#040c18"></rect><line x1="10" y1="34.0" x2="224.0" y2="34.0" stroke="#7dd3fc" stroke-width="1.2" opacity="0.28"></line><line x1="308.0" y1="34.0" x2="326.0" y2="34.0" stroke="#7dd3fc" stroke-width="1.2" opacity="0.28"></line><polygon points="326.0,30.5 333.0,34.0 326.0,37.5" fill="#7dd3fc" opacity="0.38"></polygon><line x1="376.0" y1="34.0" x2="496.0" y2="34.0" stroke="#7dd3fc" stroke-width="1.2" opacity="0.28"></line><polygon points="496.0,30.5 503.0,34.0 496.0,37.5" fill="#7dd3fc" opacity="0.38"></polygon><line x1="588.0" y1="34.0" x2="609.0" y2="34.0" stroke="#7dd3fc" stroke-width="1.2" opacity="0.28"></line><polygon points="609.0,30.5 616.0,34.0 609.0,37.5" fill="#7dd3fc" opacity="0.38"></polygon><line x1="695.0" y1="34.0" x2="710.0" y2="34.0" stroke="#7dd3fc" stroke-width="1.2" opacity="0.28"></line><polygon points="710.0,30.5 717.0,34.0 710.0,37.5" fill="#7dd3fc" opacity="0.38"></polygon><line x1="790.0" y1="34.0" x2="805.0" y2="34.0" stroke="#7dd3fc" stroke-width="1.2" opacity="0.28"></line><polygon points="805.0,30.5 812.0,34.0 805.0,37.5" fill="#7dd3fc" opacity="0.38"></polygon><line x1="891.0" y1="34.0" x2="907.0" y2="34.0" stroke="#7dd3fc" stroke-width="1.2" opacity="0.28"></line><polygon points="907.0,30.5 914.0,34.0 907.0,37.5" fill="#7dd3fc" opacity="0.38"></polygon><line x1="997.0" y1="34.0" x2="1024" y2="34.0" stroke="#7dd3fc" stroke-width="1.2" opacity="0.28"></line><polygon points="1018,30.5 1025,34.0 1018,37.5" fill="#7dd3fc" opacity="0.38"></polygon><g><title>Up to 4 prefixes in any order:
+• LOCK (F0)
+• REP/REPNE (F2/F3)
+• Segment override (26 2E 36 3E 64 65)
+• Operand-size (66)
+• Address-size (67)</title><rect x="229.0" y="15.0" width="78" height="38" rx="5" fill="#06090f" stroke="#7dd3fc" stroke-width="1.5" stroke-dasharray="5 3" opacity="0.82"></rect><text x="268" y="35.0" text-anchor="middle" fill="#7dd3fc" font-family="JetBrains Mono, Fira Code, monospace" font-size="10" font-weight="700" opacity="0.85">Legacy Pfx</text><text x="268" y="48.0" text-anchor="middle" fill="#7dd3fc" font-family="JetBrains Mono, Fira Code, monospace" font-size="7.5" opacity="0.38">0–4 bytes</text><text x="302.0" y="25.0" text-anchor="end" fill="#7dd3fc" font-family="JetBrains Mono, Fira Code, monospace" font-size="8" opacity="0.32">?</text></g><g><title>REX.WRXB (one byte):
+• W – 64-bit operand size
+• R – extends ModRM.reg to 4 bits
+• X – extends SIB.index
+• B – extends ModRM.r/m or opcode-embedded reg</title><rect x="333.0" y="15.0" width="42" height="38" rx="5" fill="#06090f" stroke="#7dd3fc" stroke-width="1.5" stroke-dasharray="5 3" opacity="0.82"></rect><text x="354" y="35.0" text-anchor="middle" fill="#7dd3fc" font-family="JetBrains Mono, Fira Code, monospace" font-size="10" font-weight="700" opacity="0.85">REX</text><text x="354" y="48.0" text-anchor="middle" fill="#7dd3fc" font-family="JetBrains Mono, Fira Code, monospace" font-size="7.5" opacity="0.38">40h–4Fh</text><text x="370.0" y="25.0" text-anchor="end" fill="#7dd3fc" font-family="JetBrains Mono, Fira Code, monospace" font-size="8" opacity="0.32">?</text></g><g><title>One byte from the primary map (00h–FFh).
+Bits[2:0] may encode a register (e.g. PUSH rAX = 50h+rb).</title><rect x="503.0" y="15.0" width="84" height="38" rx="5" fill="#06090f" stroke="#7dd3fc" stroke-width="2" stroke-dasharray="none" opacity="1"></rect><text x="545" y="35.0" text-anchor="middle" fill="#7dd3fc" font-family="JetBrains Mono, Fira Code, monospace" font-size="10" font-weight="700" opacity="1">Opcode</text><text x="545" y="48.0" text-anchor="middle" fill="#7dd3fc" font-family="JetBrains Mono, Fira Code, monospace" font-size="7.5" opacity="0.38">1 byte</text></g><g><title>mod(2) · reg(3) · r/m(3)
+mod=11 → reg/reg; 00/01/10 → memory
+reg may be an opcode extension (/digit 0–7).</title><rect x="616.0" y="15.0" width="78" height="38" rx="5" fill="#06090f" stroke="#7dd3fc" stroke-width="1.5" stroke-dasharray="5 3" opacity="0.82"></rect><text x="655" y="35.0" text-anchor="middle" fill="#7dd3fc" font-family="JetBrains Mono, Fira Code, monospace" font-size="10" font-weight="700" opacity="0.85">ModRM</text><text x="655" y="48.0" text-anchor="middle" fill="#7dd3fc" font-family="JetBrains Mono, Fira Code, monospace" font-size="7.5" opacity="0.38">1 byte</text><text x="689.0" y="25.0" text-anchor="end" fill="#7dd3fc" font-family="JetBrains Mono, Fira Code, monospace" font-size="8" opacity="0.32">?</text></g><g><title>scale(2) · index(3) · base(3)
+Required when mod≠11 and r/m=100b.
+Address: base + index×(1&lt;&lt;scale) + disp</title><rect x="717.0" y="15.0" width="72" height="38" rx="5" fill="#06090f" stroke="#7dd3fc" stroke-width="1.5" stroke-dasharray="5 3" opacity="0.82"></rect><text x="753" y="35.0" text-anchor="middle" fill="#7dd3fc" font-family="JetBrains Mono, Fira Code, monospace" font-size="10" font-weight="700" opacity="0.85">SIB</text><text x="753" y="48.0" text-anchor="middle" fill="#7dd3fc" font-family="JetBrains Mono, Fira Code, monospace" font-size="7.5" opacity="0.38">1 byte</text><text x="784.0" y="25.0" text-anchor="end" fill="#7dd3fc" font-family="JetBrains Mono, Fira Code, monospace" font-size="8" opacity="0.32">?</text></g><g><title>Memory displacement, sign-extended to address size.</title><rect x="812.0" y="15.0" width="78" height="38" rx="5" fill="#06090f" stroke="#7dd3fc" stroke-width="1.5" stroke-dasharray="5 3" opacity="0.82"></rect><text x="851" y="35.0" text-anchor="middle" fill="#7dd3fc" font-family="JetBrains Mono, Fira Code, monospace" font-size="10" font-weight="700" opacity="0.85">Disp</text><text x="851" y="48.0" text-anchor="middle" fill="#7dd3fc" font-family="JetBrains Mono, Fira Code, monospace" font-size="7.5" opacity="0.38">0/1/2/4B</text><text x="885.0" y="25.0" text-anchor="end" fill="#7dd3fc" font-family="JetBrains Mono, Fira Code, monospace" font-size="8" opacity="0.32">?</text></g><g><title>Immediate value, sign/zero-extended to operand size.</title><rect x="914.0" y="15.0" width="82" height="38" rx="5" fill="#06090f" stroke="#7dd3fc" stroke-width="1.5" stroke-dasharray="5 3" opacity="0.82"></rect><text x="955" y="35.0" text-anchor="middle" fill="#7dd3fc" font-family="JetBrains Mono, Fira Code, monospace" font-size="10" font-weight="700" opacity="0.85">Imm</text><text x="955" y="48.0" text-anchor="middle" fill="#7dd3fc" font-family="JetBrains Mono, Fira Code, monospace" font-size="7.5" opacity="0.38">0/1/2/4/8B</text><text x="991.0" y="25.0" text-anchor="end" fill="#7dd3fc" font-family="JetBrains Mono, Fira Code, monospace" font-size="8" opacity="0.32">?</text></g><text x="14" y="29.0" fill="#7dd3fc" font-family="JetBrains Mono, Fira Code, monospace" font-size="10.5" font-weight="700">Primary map</text><text x="14" y="43.0" fill="#7dd3fc" font-family="JetBrains Mono, Fira Code, monospace" font-size="7.5" opacity="0.42">No escape — most common instructions</text></svg>
+    <span class="row-chevron" aria-hidden="true">▼</span>
+  </summary>
+  <div class="examples" style="border: 1px solid #7dd3fc28; border-top: 2px solid #7dd3fc; background: #07090f;">
+    <div class="examples-header">
+      <span class="examples-title" style="color: #7dd3fc;">Primary map</span>
+      <span class="example-count">3 example(s)</span>
+    </div>
+    <div class="example-block" id="example-prim-add-rax-rcx"><div class="example-head"><span class="example-mnemonic">ADD rax, rcx</span><span class="example-asm">; 64-bit register add</span></div><div class="byte-row"><div class="byte-card"><div class="byte-box" style="border-color:#93c5fd50;"><span class="byte-hex" style="color:#93c5fd">48</span><div class="byte-field-label" style="background:#93c5fd15; border-top-color:#93c5fd22; color:#93c5fd;">REX</div></div><div class="byte-note">REX.W=1 → 64-bit operand size</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#38bdf850;"><span class="byte-hex" style="color:#38bdf8">01</span><div class="byte-field-label" style="background:#38bdf815; border-top-color:#38bdf822; color:#38bdf8;">Opcode</div></div><div class="byte-note">ADD r/m, r</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#a78bfa50;"><span class="byte-hex" style="color:#a78bfa">C8</span><div class="byte-field-label" style="background:#a78bfa15; border-top-color:#a78bfa22; color:#a78bfa;">ModRM</div></div><div class="byte-note">mod=11 reg=rcx(1) r/m=rax(0)</div></div><div style="display:flex;align-items:flex-start;padding-top:8px;margin-left:6px"><span class="byte-count" style="background:#7dd3fc14;border-color:#7dd3fc28;color:#7dd3fc;">3 byte(s)</span></div></div></div>
+<div class="example-block" id="example-prim-push-rbx"><div class="example-head"><span class="example-mnemonic">PUSH rbx</span><span class="example-asm">; no REX needed</span></div><div class="byte-row"><div class="byte-card"><div class="byte-box" style="border-color:#38bdf850;"><span class="byte-hex" style="color:#38bdf8">53</span><div class="byte-field-label" style="background:#38bdf815; border-top-color:#38bdf822; color:#38bdf8;">Opcode</div></div><div class="byte-note">PUSH r64, opcode = 50h+rb (rb=3 for rbx)</div></div><div style="display:flex;align-items:flex-start;padding-top:8px;margin-left:6px"><span class="byte-count" style="background:#7dd3fc14;border-color:#7dd3fc28;color:#7dd3fc;">1 byte(s)</span></div></div></div>
+<div class="example-block" id="example-prim-mov-rsi-0x10-al"><div class="example-head"><span class="example-mnemonic">MOV [rsi+0x10], al</span><span class="example-asm">; byte store with disp8</span></div><div class="byte-row"><div class="byte-card"><div class="byte-box" style="border-color:#38bdf850;"><span class="byte-hex" style="color:#38bdf8">88</span><div class="byte-field-label" style="background:#38bdf815; border-top-color:#38bdf822; color:#38bdf8;">Opcode</div></div><div class="byte-note">MOV r/m8, r8</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#a78bfa50;"><span class="byte-hex" style="color:#a78bfa">46</span><div class="byte-field-label" style="background:#a78bfa15; border-top-color:#a78bfa22; color:#a78bfa;">ModRM</div></div><div class="byte-note">mod=01 reg=al(0) r/m=rsi(6)</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#f472b650;"><span class="byte-hex" style="color:#f472b6">10</span><div class="byte-field-label" style="background:#f472b615; border-top-color:#f472b622; color:#f472b6;">Disp</div></div><div class="byte-note">disp8 = +0x10</div></div><div style="display:flex;align-items:flex-start;padding-top:8px;margin-left:6px"><span class="byte-count" style="background:#7dd3fc14;border-color:#7dd3fc28;color:#7dd3fc;">3 byte(s)</span></div></div></div>
+    <details class="field-notes">
+      <summary>Field Notes</summary>
+      <div class="field-notes-list"><article class="field-note-item"><div class="field-note-title">Legacy Pfx · 0–4 bytes</div><div class="field-note-tip">Up to 4 prefixes in any order:
+• LOCK (F0)
+• REP/REPNE (F2/F3)
+• Segment override (26 2E 36 3E 64 65)
+• Operand-size (66)
+• Address-size (67)</div></article>
+<article class="field-note-item"><div class="field-note-title">REX · 40h–4Fh</div><div class="field-note-tip">REX.WRXB (one byte):
+• W – 64-bit operand size
+• R – extends ModRM.reg to 4 bits
+• X – extends SIB.index
+• B – extends ModRM.r/m or opcode-embedded reg</div></article>
+<article class="field-note-item"><div class="field-note-title">Opcode · 1 byte</div><div class="field-note-tip">One byte from the primary map (00h–FFh).
+Bits[2:0] may encode a register (e.g. PUSH rAX = 50h+rb).</div></article>
+<article class="field-note-item"><div class="field-note-title">ModRM · 1 byte</div><div class="field-note-tip">mod(2) · reg(3) · r/m(3)
+mod=11 → reg/reg; 00/01/10 → memory
+reg may be an opcode extension (/digit 0–7).</div></article>
+<article class="field-note-item"><div class="field-note-title">SIB · 1 byte</div><div class="field-note-tip">scale(2) · index(3) · base(3)
+Required when mod≠11 and r/m=100b.
+Address: base + index×(1&lt;&lt;scale) + disp</div></article>
+<article class="field-note-item"><div class="field-note-title">Disp · 0/1/2/4B</div><div class="field-note-tip">Memory displacement, sign-extended to address size.</div></article>
+<article class="field-note-item"><div class="field-note-title">Imm · 0/1/2/4/8B</div><div class="field-note-tip">Immediate value, sign/zero-extended to operand size.</div></article></div>
+    </details>
+  </div>
+</details>
+
+<details class="family row-wrap" id="family-addr" data-family-id="addr" data-group-id="legacy" data-search="addressing traps modrm/sib corner cases (rsp/rbp/r13/rip/addr32) legacy pfx rex opcode modrm sib disp imm mov [rsp+0x20], rax mov eax, [rsp] mov eax, [rbp] mov eax, [r13] mov eax, [rip+0x11223344] mov eax, [eax] (addr32) ; rsp base forces sib ; [rsp] also forces sib ; rbp cannot use mod=00 → disp8=0 ; same trap as rbp (requires disp) ; mod=00 r/m=101 → disp32 ; 67h overrides address size in 64-bit mode" >
+  <summary class="row-svg-wrap" aria-label="Addressing traps">
+    <svg viewBox="0 0 1040 68" width="100%" aria-hidden="true" focusable="false"><line x1="474" y1="0" x2="474" y2="68" stroke="#0d1525" stroke-width="1"></line><line x1="584" y1="0" x2="584" y2="68" stroke="#0d1525" stroke-width="1"></line><line x1="682" y1="0" x2="682" y2="68" stroke="#0d1525" stroke-width="1"></line><line x1="780" y1="0" x2="780" y2="68" stroke="#0d1525" stroke-width="1"></line><line x1="884" y1="0" x2="884" y2="68" stroke="#0d1525" stroke-width="1"></line><rect x="8" y="2" width="1024" height="64" rx="6" fill="#040c18"></rect><line x1="10" y1="34.0" x2="224.0" y2="34.0" stroke="#7dd3fc" stroke-width="1.2" opacity="0.28"></line><line x1="308.0" y1="34.0" x2="326.0" y2="34.0" stroke="#7dd3fc" stroke-width="1.2" opacity="0.28"></line><polygon points="326.0,30.5 333.0,34.0 326.0,37.5" fill="#7dd3fc" opacity="0.38"></polygon><line x1="376.0" y1="34.0" x2="496.0" y2="34.0" stroke="#7dd3fc" stroke-width="1.2" opacity="0.28"></line><polygon points="496.0,30.5 503.0,34.0 496.0,37.5" fill="#7dd3fc" opacity="0.38"></polygon><line x1="588.0" y1="34.0" x2="609.0" y2="34.0" stroke="#7dd3fc" stroke-width="1.2" opacity="0.28"></line><polygon points="609.0,30.5 616.0,34.0 609.0,37.5" fill="#7dd3fc" opacity="0.38"></polygon><line x1="695.0" y1="34.0" x2="710.0" y2="34.0" stroke="#7dd3fc" stroke-width="1.2" opacity="0.28"></line><polygon points="710.0,30.5 717.0,34.0 710.0,37.5" fill="#7dd3fc" opacity="0.38"></polygon><line x1="790.0" y1="34.0" x2="805.0" y2="34.0" stroke="#7dd3fc" stroke-width="1.2" opacity="0.28"></line><polygon points="805.0,30.5 812.0,34.0 805.0,37.5" fill="#7dd3fc" opacity="0.38"></polygon><line x1="891.0" y1="34.0" x2="907.0" y2="34.0" stroke="#7dd3fc" stroke-width="1.2" opacity="0.28"></line><polygon points="907.0,30.5 914.0,34.0 907.0,37.5" fill="#7dd3fc" opacity="0.38"></polygon><line x1="997.0" y1="34.0" x2="1024" y2="34.0" stroke="#7dd3fc" stroke-width="1.2" opacity="0.28"></line><polygon points="1018,30.5 1025,34.0 1018,37.5" fill="#7dd3fc" opacity="0.38"></polygon><g><title>Includes address-size override (67h) and operand-size override (66h).
+These are still legal with legacy encodings and can change decoding rules.</title><rect x="229.0" y="15.0" width="78" height="38" rx="5" fill="#06090f" stroke="#7dd3fc" stroke-width="1.5" stroke-dasharray="5 3" opacity="0.82"></rect><text x="268" y="35.0" text-anchor="middle" fill="#7dd3fc" font-family="JetBrains Mono, Fira Code, monospace" font-size="10" font-weight="700" opacity="0.85">Legacy Pfx</text><text x="268" y="48.0" text-anchor="middle" fill="#7dd3fc" font-family="JetBrains Mono, Fira Code, monospace" font-size="7.5" opacity="0.38">0–4 bytes</text><text x="302.0" y="25.0" text-anchor="end" fill="#7dd3fc" font-family="JetBrains Mono, Fira Code, monospace" font-size="8" opacity="0.32">?</text></g><g><title>REX.WRXB (one byte).
+Traps here: B extends base (ModRM.r/m or SIB.base), X extends SIB.index.</title><rect x="333.0" y="15.0" width="42" height="38" rx="5" fill="#06090f" stroke="#7dd3fc" stroke-width="1.5" stroke-dasharray="5 3" opacity="0.82"></rect><text x="354" y="35.0" text-anchor="middle" fill="#7dd3fc" font-family="JetBrains Mono, Fira Code, monospace" font-size="10" font-weight="700" opacity="0.85">REX</text><text x="354" y="48.0" text-anchor="middle" fill="#7dd3fc" font-family="JetBrains Mono, Fira Code, monospace" font-size="7.5" opacity="0.38">40h–4Fh</text><text x="370.0" y="25.0" text-anchor="end" fill="#7dd3fc" font-family="JetBrains Mono, Fira Code, monospace" font-size="8" opacity="0.32">?</text></g><g><title>Example opcodes here are MOV (8Bh/89h). Structure is the point — not the mnemonic.</title><rect x="503.0" y="15.0" width="84" height="38" rx="5" fill="#06090f" stroke="#7dd3fc" stroke-width="2" stroke-dasharray="none" opacity="1"></rect><text x="545" y="35.0" text-anchor="middle" fill="#7dd3fc" font-family="JetBrains Mono, Fira Code, monospace" font-size="10" font-weight="700" opacity="1">Opcode</text><text x="545" y="48.0" text-anchor="middle" fill="#7dd3fc" font-family="JetBrains Mono, Fira Code, monospace" font-size="7.5" opacity="0.38">1 byte</text></g><g><title>mod(2) · reg(3) · r/m(3)
+Key traps:
+• mod≠11 &amp; r/m=100b → SIB is present
+• mod=00 &amp; r/m=101b → disp32 (RIP-relative in 64-bit mode)
+• base=RBP/R13 cannot use mod=00 without a disp</title><rect x="616.0" y="15.0" width="78" height="38" rx="5" fill="#06090f" stroke="#7dd3fc" stroke-width="1.5" stroke-dasharray="5 3" opacity="0.82"></rect><text x="655" y="35.0" text-anchor="middle" fill="#7dd3fc" font-family="JetBrains Mono, Fira Code, monospace" font-size="10" font-weight="700" opacity="0.85">ModRM</text><text x="655" y="48.0" text-anchor="middle" fill="#7dd3fc" font-family="JetBrains Mono, Fira Code, monospace" font-size="7.5" opacity="0.38">1 byte</text><text x="689.0" y="25.0" text-anchor="end" fill="#7dd3fc" font-family="JetBrains Mono, Fira Code, monospace" font-size="8" opacity="0.32">?</text></g><g><title>scale(2) · index(3) · base(3)
+Key traps:
+• base=100b selects RSP/R12 (and often forces SIB)
+• index=100b means “no index” (not RSP)
+• base=101b with mod=00 implies disp32 (no base)</title><rect x="717.0" y="15.0" width="72" height="38" rx="5" fill="#06090f" stroke="#7dd3fc" stroke-width="1.5" stroke-dasharray="5 3" opacity="0.82"></rect><text x="753" y="35.0" text-anchor="middle" fill="#7dd3fc" font-family="JetBrains Mono, Fira Code, monospace" font-size="10" font-weight="700" opacity="0.85">SIB</text><text x="753" y="48.0" text-anchor="middle" fill="#7dd3fc" font-family="JetBrains Mono, Fira Code, monospace" font-size="7.5" opacity="0.38">1 byte</text><text x="784.0" y="25.0" text-anchor="end" fill="#7dd3fc" font-family="JetBrains Mono, Fira Code, monospace" font-size="8" opacity="0.32">?</text></g><g><title>Many addressing traps resolve by emitting disp8=00 (a real byte) to avoid the mod=00 special cases.</title><rect x="812.0" y="15.0" width="78" height="38" rx="5" fill="#06090f" stroke="#7dd3fc" stroke-width="1.5" stroke-dasharray="5 3" opacity="0.82"></rect><text x="851" y="35.0" text-anchor="middle" fill="#7dd3fc" font-family="JetBrains Mono, Fira Code, monospace" font-size="10" font-weight="700" opacity="0.85">Disp</text><text x="851" y="48.0" text-anchor="middle" fill="#7dd3fc" font-family="JetBrains Mono, Fira Code, monospace" font-size="7.5" opacity="0.38">0/1/2/4B</text><text x="885.0" y="25.0" text-anchor="end" fill="#7dd3fc" font-family="JetBrains Mono, Fira Code, monospace" font-size="8" opacity="0.32">?</text></g><g><title>Not used in these examples.</title><rect x="914.0" y="15.0" width="82" height="38" rx="5" fill="#06090f" stroke="#7dd3fc" stroke-width="1.5" stroke-dasharray="5 3" opacity="0.82"></rect><text x="955" y="35.0" text-anchor="middle" fill="#7dd3fc" font-family="JetBrains Mono, Fira Code, monospace" font-size="10" font-weight="700" opacity="0.85">Imm</text><text x="955" y="48.0" text-anchor="middle" fill="#7dd3fc" font-family="JetBrains Mono, Fira Code, monospace" font-size="7.5" opacity="0.38">—</text><text x="991.0" y="25.0" text-anchor="end" fill="#7dd3fc" font-family="JetBrains Mono, Fira Code, monospace" font-size="8" opacity="0.32">?</text></g><text x="14" y="29.0" fill="#7dd3fc" font-family="JetBrains Mono, Fira Code, monospace" font-size="10.5" font-weight="700">Addressing traps</text><text x="14" y="43.0" fill="#7dd3fc" font-family="JetBrains Mono, Fira Code, monospace" font-size="7.5" opacity="0.42">ModRM/SIB corner cases (rsp/rbp/r13/rip/addr32)</text></svg>
+    <span class="row-chevron" aria-hidden="true">▼</span>
+  </summary>
+  <div class="examples" style="border: 1px solid #7dd3fc28; border-top: 2px solid #7dd3fc; background: #07090f;">
+    <div class="examples-header">
+      <span class="examples-title" style="color: #7dd3fc;">Addressing traps</span>
+      <span class="example-count">6 example(s)</span>
+    </div>
+    <div class="example-block" id="example-addr-mov-rsp-0x20-rax"><div class="example-head"><span class="example-mnemonic">MOV [rsp+0x20], rax</span><span class="example-asm">; RSP base forces SIB</span></div><div class="byte-row"><div class="byte-card"><div class="byte-box" style="border-color:#93c5fd50;"><span class="byte-hex" style="color:#93c5fd">48</span><div class="byte-field-label" style="background:#93c5fd15; border-top-color:#93c5fd22; color:#93c5fd;">REX</div></div><div class="byte-note">W=1 → r/m64, r64</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#38bdf850;"><span class="byte-hex" style="color:#38bdf8">89</span><div class="byte-field-label" style="background:#38bdf815; border-top-color:#38bdf822; color:#38bdf8;">Opcode</div></div><div class="byte-note">MOV r/m64, r64</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#a78bfa50;"><span class="byte-hex" style="color:#a78bfa">44</span><div class="byte-field-label" style="background:#a78bfa15; border-top-color:#a78bfa22; color:#a78bfa;">ModRM</div></div><div class="byte-note">mod=01 reg=rax r/m=100 → SIB follows</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#c4b5fd50;"><span class="byte-hex" style="color:#c4b5fd">24</span><div class="byte-field-label" style="background:#c4b5fd15; border-top-color:#c4b5fd22; color:#c4b5fd;">SIB</div></div><div class="byte-note">scale=0 index=100(no index) base=100(rsp)</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#fbbf2450;"><span class="byte-hex" style="color:#fbbf24">20</span><div class="byte-field-label" style="background:#fbbf2415; border-top-color:#fbbf2422; color:#fbbf24;">Disp8</div></div><div class="byte-note">+0x20</div></div><div style="display:flex;align-items:flex-start;padding-top:8px;margin-left:6px"><span class="byte-count" style="background:#7dd3fc14;border-color:#7dd3fc28;color:#7dd3fc;">5 byte(s)</span></div></div></div>
+<div class="example-block" id="example-addr-mov-eax-rsp"><div class="example-head"><span class="example-mnemonic">MOV eax, [rsp]</span><span class="example-asm">; [rsp] also forces SIB</span></div><div class="byte-row"><div class="byte-card"><div class="byte-box" style="border-color:#38bdf850;"><span class="byte-hex" style="color:#38bdf8">8B</span><div class="byte-field-label" style="background:#38bdf815; border-top-color:#38bdf822; color:#38bdf8;">Opcode</div></div><div class="byte-note">MOV r32, r/m32</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#a78bfa50;"><span class="byte-hex" style="color:#a78bfa">04</span><div class="byte-field-label" style="background:#a78bfa15; border-top-color:#a78bfa22; color:#a78bfa;">ModRM</div></div><div class="byte-note">mod=00 reg=eax r/m=100 → SIB follows</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#c4b5fd50;"><span class="byte-hex" style="color:#c4b5fd">24</span><div class="byte-field-label" style="background:#c4b5fd15; border-top-color:#c4b5fd22; color:#c4b5fd;">SIB</div></div><div class="byte-note">index=100(no index) base=100(rsp)</div></div><div style="display:flex;align-items:flex-start;padding-top:8px;margin-left:6px"><span class="byte-count" style="background:#7dd3fc14;border-color:#7dd3fc28;color:#7dd3fc;">3 byte(s)</span></div></div></div>
+<div class="example-block" id="example-addr-mov-eax-rbp"><div class="example-head"><span class="example-mnemonic">MOV eax, [rbp]</span><span class="example-asm">; RBP cannot use mod=00 → disp8=0</span></div><div class="byte-row"><div class="byte-card"><div class="byte-box" style="border-color:#38bdf850;"><span class="byte-hex" style="color:#38bdf8">8B</span><div class="byte-field-label" style="background:#38bdf815; border-top-color:#38bdf822; color:#38bdf8;">Opcode</div></div><div class="byte-note">MOV r32, r/m32</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#a78bfa50;"><span class="byte-hex" style="color:#a78bfa">45</span><div class="byte-field-label" style="background:#a78bfa15; border-top-color:#a78bfa22; color:#a78bfa;">ModRM</div></div><div class="byte-note">mod=01 reg=eax r/m=101(rbp)</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#fbbf2450;"><span class="byte-hex" style="color:#fbbf24">00</span><div class="byte-field-label" style="background:#fbbf2415; border-top-color:#fbbf2422; color:#fbbf24;">Disp8</div></div><div class="byte-note">disp8=0 (required)</div></div><div style="display:flex;align-items:flex-start;padding-top:8px;margin-left:6px"><span class="byte-count" style="background:#7dd3fc14;border-color:#7dd3fc28;color:#7dd3fc;">3 byte(s)</span></div></div></div>
+<div class="example-block" id="example-addr-mov-eax-r13"><div class="example-head"><span class="example-mnemonic">MOV eax, [r13]</span><span class="example-asm">; same trap as RBP (requires disp)</span></div><div class="byte-row"><div class="byte-card"><div class="byte-box" style="border-color:#93c5fd50;"><span class="byte-hex" style="color:#93c5fd">41</span><div class="byte-field-label" style="background:#93c5fd15; border-top-color:#93c5fd22; color:#93c5fd;">REX</div></div><div class="byte-note">B=1 → base=r13</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#38bdf850;"><span class="byte-hex" style="color:#38bdf8">8B</span><div class="byte-field-label" style="background:#38bdf815; border-top-color:#38bdf822; color:#38bdf8;">Opcode</div></div><div class="byte-note">MOV r32, r/m32</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#a78bfa50;"><span class="byte-hex" style="color:#a78bfa">45</span><div class="byte-field-label" style="background:#a78bfa15; border-top-color:#a78bfa22; color:#a78bfa;">ModRM</div></div><div class="byte-note">mod=01 reg=eax r/m=101(+B → r13)</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#fbbf2450;"><span class="byte-hex" style="color:#fbbf24">00</span><div class="byte-field-label" style="background:#fbbf2415; border-top-color:#fbbf2422; color:#fbbf24;">Disp8</div></div><div class="byte-note">disp8=0 (required)</div></div><div style="display:flex;align-items:flex-start;padding-top:8px;margin-left:6px"><span class="byte-count" style="background:#7dd3fc14;border-color:#7dd3fc28;color:#7dd3fc;">4 byte(s)</span></div></div></div>
+<div class="example-block" id="example-addr-mov-eax-rip-0x11223344"><div class="example-head"><span class="example-mnemonic">MOV eax, [rip+0x11223344]</span><span class="example-asm">; mod=00 r/m=101 → disp32</span></div><div class="byte-row"><div class="byte-card"><div class="byte-box" style="border-color:#38bdf850;"><span class="byte-hex" style="color:#38bdf8">8B</span><div class="byte-field-label" style="background:#38bdf815; border-top-color:#38bdf822; color:#38bdf8;">Opcode</div></div><div class="byte-note">MOV r32, r/m32</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#a78bfa50;"><span class="byte-hex" style="color:#a78bfa">05</span><div class="byte-field-label" style="background:#a78bfa15; border-top-color:#a78bfa22; color:#a78bfa;">ModRM</div></div><div class="byte-note">mod=00 reg=eax r/m=101 → disp32 (RIP-rel)</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#fbbf2450;"><span class="byte-hex" style="color:#fbbf24">44</span><div class="byte-field-label" style="background:#fbbf2415; border-top-color:#fbbf2422; color:#fbbf24;">Disp32</div></div><div class="byte-note">0x11223344 (low)</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#fbbf2450;"><span class="byte-hex" style="color:#fbbf24">33</span><div class="byte-field-label" style="background:#fbbf2415; border-top-color:#fbbf2422; color:#fbbf24;">Disp32</div></div><div class="byte-note"> </div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#fbbf2450;"><span class="byte-hex" style="color:#fbbf24">22</span><div class="byte-field-label" style="background:#fbbf2415; border-top-color:#fbbf2422; color:#fbbf24;">Disp32</div></div><div class="byte-note"> </div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#fbbf2450;"><span class="byte-hex" style="color:#fbbf24">11</span><div class="byte-field-label" style="background:#fbbf2415; border-top-color:#fbbf2422; color:#fbbf24;">Disp32</div></div><div class="byte-note"> </div></div><div style="display:flex;align-items:flex-start;padding-top:8px;margin-left:6px"><span class="byte-count" style="background:#7dd3fc14;border-color:#7dd3fc28;color:#7dd3fc;">6 byte(s)</span></div></div></div>
+<div class="example-block" id="example-addr-mov-eax-eax-addr32"><div class="example-head"><span class="example-mnemonic">MOV eax, [eax] (addr32)</span><span class="example-asm">; 67h overrides address size in 64-bit mode</span></div><div class="byte-row"><div class="byte-card"><div class="byte-box" style="border-color:#7dd3fc50;"><span class="byte-hex" style="color:#7dd3fc">67</span><div class="byte-field-label" style="background:#7dd3fc15; border-top-color:#7dd3fc22; color:#7dd3fc;">Pfx</div></div><div class="byte-note">Address-size override (addr32)</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#38bdf850;"><span class="byte-hex" style="color:#38bdf8">8B</span><div class="byte-field-label" style="background:#38bdf815; border-top-color:#38bdf822; color:#38bdf8;">Opcode</div></div><div class="byte-note">MOV r32, r/m32</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#a78bfa50;"><span class="byte-hex" style="color:#a78bfa">00</span><div class="byte-field-label" style="background:#a78bfa15; border-top-color:#a78bfa22; color:#a78bfa;">ModRM</div></div><div class="byte-note">mod=00 reg=eax r/m=eax</div></div><div style="display:flex;align-items:flex-start;padding-top:8px;margin-left:6px"><span class="byte-count" style="background:#7dd3fc14;border-color:#7dd3fc28;color:#7dd3fc;">3 byte(s)</span></div></div></div>
+    <details class="field-notes">
+      <summary>Field Notes</summary>
+      <div class="field-notes-list"><article class="field-note-item"><div class="field-note-title">Legacy Pfx · 0–4 bytes</div><div class="field-note-tip">Includes address-size override (67h) and operand-size override (66h).
+These are still legal with legacy encodings and can change decoding rules.</div></article>
+<article class="field-note-item"><div class="field-note-title">REX · 40h–4Fh</div><div class="field-note-tip">REX.WRXB (one byte).
+Traps here: B extends base (ModRM.r/m or SIB.base), X extends SIB.index.</div></article>
+<article class="field-note-item"><div class="field-note-title">Opcode · 1 byte</div><div class="field-note-tip">Example opcodes here are MOV (8Bh/89h). Structure is the point — not the mnemonic.</div></article>
+<article class="field-note-item"><div class="field-note-title">ModRM · 1 byte</div><div class="field-note-tip">mod(2) · reg(3) · r/m(3)
+Key traps:
+• mod≠11 &amp; r/m=100b → SIB is present
+• mod=00 &amp; r/m=101b → disp32 (RIP-relative in 64-bit mode)
+• base=RBP/R13 cannot use mod=00 without a disp</div></article>
+<article class="field-note-item"><div class="field-note-title">SIB · 1 byte</div><div class="field-note-tip">scale(2) · index(3) · base(3)
+Key traps:
+• base=100b selects RSP/R12 (and often forces SIB)
+• index=100b means “no index” (not RSP)
+• base=101b with mod=00 implies disp32 (no base)</div></article>
+<article class="field-note-item"><div class="field-note-title">Disp · 0/1/2/4B</div><div class="field-note-tip">Many addressing traps resolve by emitting disp8=00 (a real byte) to avoid the mod=00 special cases.</div></article>
+<article class="field-note-item"><div class="field-note-title">Imm · —</div><div class="field-note-tip">Not used in these examples.</div></article></div>
+    </details>
+  </div>
+</details>
+
+<details class="family row-wrap" id="family-esc2" data-family-id="esc2" data-group-id="legacy" data-search="0f — two-byte map sse integer/fp, system, vmx… legacy pfx rex 0fh opcode modrm sib disp imm movaps xmm0, xmm1 addsd xmm2, xmm3 imul rax, rcx ; move aligned packed single ; f2 prefix → scalar double ; signed multiply" >
+  <summary class="row-svg-wrap" aria-label="0F — Two-byte map">
+    <svg viewBox="0 0 1040 68" width="100%" aria-hidden="true" focusable="false"><line x1="474" y1="0" x2="474" y2="68" stroke="#0d1525" stroke-width="1"></line><line x1="584" y1="0" x2="584" y2="68" stroke="#0d1525" stroke-width="1"></line><line x1="682" y1="0" x2="682" y2="68" stroke="#0d1525" stroke-width="1"></line><line x1="780" y1="0" x2="780" y2="68" stroke="#0d1525" stroke-width="1"></line><line x1="884" y1="0" x2="884" y2="68" stroke="#0d1525" stroke-width="1"></line><rect x="8" y="2" width="1024" height="64" rx="6" fill="#030e15"></rect><line x1="10" y1="34.0" x2="224.0" y2="34.0" stroke="#38bdf8" stroke-width="1.2" opacity="0.28"></line><line x1="308.0" y1="34.0" x2="326.0" y2="34.0" stroke="#38bdf8" stroke-width="1.2" opacity="0.28"></line><polygon points="326.0,30.5 333.0,34.0 326.0,37.5" fill="#38bdf8" opacity="0.38"></polygon><line x1="376.0" y1="34.0" x2="393.0" y2="34.0" stroke="#38bdf8" stroke-width="1.2" opacity="0.28"></line><polygon points="393.0,30.5 400.0,34.0 393.0,37.5" fill="#38bdf8" opacity="0.38"></polygon><line x1="481.0" y1="34.0" x2="496.0" y2="34.0" stroke="#38bdf8" stroke-width="1.2" opacity="0.28"></line><polygon points="496.0,30.5 503.0,34.0 496.0,37.5" fill="#38bdf8" opacity="0.38"></polygon><line x1="588.0" y1="34.0" x2="609.0" y2="34.0" stroke="#38bdf8" stroke-width="1.2" opacity="0.28"></line><polygon points="609.0,30.5 616.0,34.0 609.0,37.5" fill="#38bdf8" opacity="0.38"></polygon><line x1="695.0" y1="34.0" x2="710.0" y2="34.0" stroke="#38bdf8" stroke-width="1.2" opacity="0.28"></line><polygon points="710.0,30.5 717.0,34.0 710.0,37.5" fill="#38bdf8" opacity="0.38"></polygon><line x1="790.0" y1="34.0" x2="805.0" y2="34.0" stroke="#38bdf8" stroke-width="1.2" opacity="0.28"></line><polygon points="805.0,30.5 812.0,34.0 805.0,37.5" fill="#38bdf8" opacity="0.38"></polygon><line x1="891.0" y1="34.0" x2="907.0" y2="34.0" stroke="#38bdf8" stroke-width="1.2" opacity="0.28"></line><polygon points="907.0,30.5 914.0,34.0 907.0,37.5" fill="#38bdf8" opacity="0.38"></polygon><line x1="997.0" y1="34.0" x2="1024" y2="34.0" stroke="#38bdf8" stroke-width="1.2" opacity="0.28"></line><polygon points="1018,30.5 1025,34.0 1018,37.5" fill="#38bdf8" opacity="0.38"></polygon><g><title>66h → SSE2 (66 0F)
+F3h → SSE scalar-single
+F2h → SSE scalar-double</title><rect x="229.0" y="15.0" width="78" height="38" rx="5" fill="#06090f" stroke="#38bdf8" stroke-width="1.5" stroke-dasharray="5 3" opacity="0.82"></rect><text x="268" y="35.0" text-anchor="middle" fill="#38bdf8" font-family="JetBrains Mono, Fira Code, monospace" font-size="10" font-weight="700" opacity="0.85">Legacy Pfx</text><text x="268" y="48.0" text-anchor="middle" fill="#38bdf8" font-family="JetBrains Mono, Fira Code, monospace" font-size="7.5" opacity="0.38">0–4 bytes</text><text x="302.0" y="25.0" text-anchor="end" fill="#38bdf8" font-family="JetBrains Mono, Fira Code, monospace" font-size="8" opacity="0.32">?</text></g><g><title>Same REX.WRXB semantics.</title><rect x="333.0" y="15.0" width="42" height="38" rx="5" fill="#06090f" stroke="#38bdf8" stroke-width="1.5" stroke-dasharray="5 3" opacity="0.82"></rect><text x="354" y="35.0" text-anchor="middle" fill="#38bdf8" font-family="JetBrains Mono, Fira Code, monospace" font-size="10" font-weight="700" opacity="0.85">REX</text><text x="354" y="48.0" text-anchor="middle" fill="#38bdf8" font-family="JetBrains Mono, Fira Code, monospace" font-size="7.5" opacity="0.38">40h–4Fh</text><text x="370.0" y="25.0" text-anchor="end" fill="#38bdf8" font-family="JetBrains Mono, Fira Code, monospace" font-size="8" opacity="0.32">?</text></g><g><title>Escape byte 0Fh selects the two-byte opcode map.
+The mandatory prefix (if any) determines the variant:
+• (none) 0F → original
+• 66 0F   → SSE2
+• F3 0F   → SSEf3
+• F2 0F   → SSEf2</title><rect x="400.0" y="15.0" width="80" height="38" rx="5" fill="#06090f" stroke="#38bdf8" stroke-width="2" stroke-dasharray="none" opacity="1"></rect><text x="440" y="35.0" text-anchor="middle" fill="#38bdf8" font-family="JetBrains Mono, Fira Code, monospace" font-size="10" font-weight="700" opacity="1">0Fh</text><text x="440" y="48.0" text-anchor="middle" fill="#38bdf8" font-family="JetBrains Mono, Fira Code, monospace" font-size="7.5" opacity="0.38">escape</text></g><g><title>Second opcode byte (00h–FFh).
+28h=MOVAPS, 57h=XORPS, AFh=IMUL r,r/m, AEh=SFENCE/LFENCE</title><rect x="503.0" y="15.0" width="84" height="38" rx="5" fill="#06090f" stroke="#38bdf8" stroke-width="2" stroke-dasharray="none" opacity="1"></rect><text x="545" y="35.0" text-anchor="middle" fill="#38bdf8" font-family="JetBrains Mono, Fira Code, monospace" font-size="10" font-weight="700" opacity="1">Opcode</text><text x="545" y="48.0" text-anchor="middle" fill="#38bdf8" font-family="JetBrains Mono, Fira Code, monospace" font-size="7.5" opacity="0.38">map 0F</text></g><g><title>ModRM where required.</title><rect x="616.0" y="15.0" width="78" height="38" rx="5" fill="#06090f" stroke="#38bdf8" stroke-width="1.5" stroke-dasharray="5 3" opacity="0.82"></rect><text x="655" y="35.0" text-anchor="middle" fill="#38bdf8" font-family="JetBrains Mono, Fira Code, monospace" font-size="10" font-weight="700" opacity="0.85">ModRM</text><text x="655" y="48.0" text-anchor="middle" fill="#38bdf8" font-family="JetBrains Mono, Fira Code, monospace" font-size="7.5" opacity="0.38">1 byte</text><text x="689.0" y="25.0" text-anchor="end" fill="#38bdf8" font-family="JetBrains Mono, Fira Code, monospace" font-size="8" opacity="0.32">?</text></g><g><title>SIB for memory operand.</title><rect x="717.0" y="15.0" width="72" height="38" rx="5" fill="#06090f" stroke="#38bdf8" stroke-width="1.5" stroke-dasharray="5 3" opacity="0.82"></rect><text x="753" y="35.0" text-anchor="middle" fill="#38bdf8" font-family="JetBrains Mono, Fira Code, monospace" font-size="10" font-weight="700" opacity="0.85">SIB</text><text x="753" y="48.0" text-anchor="middle" fill="#38bdf8" font-family="JetBrains Mono, Fira Code, monospace" font-size="7.5" opacity="0.38">1 byte</text><text x="784.0" y="25.0" text-anchor="end" fill="#38bdf8" font-family="JetBrains Mono, Fira Code, monospace" font-size="8" opacity="0.32">?</text></g><g><title>Displacement.</title><rect x="812.0" y="15.0" width="78" height="38" rx="5" fill="#06090f" stroke="#38bdf8" stroke-width="1.5" stroke-dasharray="5 3" opacity="0.82"></rect><text x="851" y="35.0" text-anchor="middle" fill="#38bdf8" font-family="JetBrains Mono, Fira Code, monospace" font-size="10" font-weight="700" opacity="0.85">Disp</text><text x="851" y="48.0" text-anchor="middle" fill="#38bdf8" font-family="JetBrains Mono, Fira Code, monospace" font-size="7.5" opacity="0.38">0/1/2/4B</text><text x="885.0" y="25.0" text-anchor="end" fill="#38bdf8" font-family="JetBrains Mono, Fira Code, monospace" font-size="8" opacity="0.32">?</text></g><g><title>Imm8 for select instructions (e.g. PSRLW imm8).</title><rect x="914.0" y="15.0" width="82" height="38" rx="5" fill="#06090f" stroke="#38bdf8" stroke-width="1.5" stroke-dasharray="5 3" opacity="0.82"></rect><text x="955" y="35.0" text-anchor="middle" fill="#38bdf8" font-family="JetBrains Mono, Fira Code, monospace" font-size="10" font-weight="700" opacity="0.85">Imm</text><text x="955" y="48.0" text-anchor="middle" fill="#38bdf8" font-family="JetBrains Mono, Fira Code, monospace" font-size="7.5" opacity="0.38">0/1B</text><text x="991.0" y="25.0" text-anchor="end" fill="#38bdf8" font-family="JetBrains Mono, Fira Code, monospace" font-size="8" opacity="0.32">?</text></g><text x="14" y="29.0" fill="#38bdf8" font-family="JetBrains Mono, Fira Code, monospace" font-size="10.5" font-weight="700">0F — Two-byte map</text><text x="14" y="43.0" fill="#38bdf8" font-family="JetBrains Mono, Fira Code, monospace" font-size="7.5" opacity="0.42">SSE integer/FP, system, VMX…</text></svg>
+    <span class="row-chevron" aria-hidden="true">▼</span>
+  </summary>
+  <div class="examples" style="border: 1px solid #38bdf828; border-top: 2px solid #38bdf8; background: #07090f;">
+    <div class="examples-header">
+      <span class="examples-title" style="color: #38bdf8;">0F — Two-byte map</span>
+      <span class="example-count">3 example(s)</span>
+    </div>
+    <div class="example-block" id="example-esc2-movaps-xmm0-xmm1"><div class="example-head"><span class="example-mnemonic">MOVAPS xmm0, xmm1</span><span class="example-asm">; move aligned packed single</span></div><div class="byte-row"><div class="byte-card"><div class="byte-box" style="border-color:#22d3ee50;"><span class="byte-hex" style="color:#22d3ee">0F</span><div class="byte-field-label" style="background:#22d3ee15; border-top-color:#22d3ee22; color:#22d3ee;">Escape</div></div><div class="byte-note">0F escape</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#38bdf850;"><span class="byte-hex" style="color:#38bdf8">28</span><div class="byte-field-label" style="background:#38bdf815; border-top-color:#38bdf822; color:#38bdf8;">Opcode</div></div><div class="byte-note">MOVAPS xmm, xmm/m128</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#a78bfa50;"><span class="byte-hex" style="color:#a78bfa">C1</span><div class="byte-field-label" style="background:#a78bfa15; border-top-color:#a78bfa22; color:#a78bfa;">ModRM</div></div><div class="byte-note">mod=11 reg=xmm0(0) r/m=xmm1(1)</div></div><div style="display:flex;align-items:flex-start;padding-top:8px;margin-left:6px"><span class="byte-count" style="background:#38bdf814;border-color:#38bdf828;color:#38bdf8;">3 byte(s)</span></div></div></div>
+<div class="example-block" id="example-esc2-addsd-xmm2-xmm3"><div class="example-head"><span class="example-mnemonic">ADDSD xmm2, xmm3</span><span class="example-asm">; F2 prefix → scalar double</span></div><div class="byte-row"><div class="byte-card"><div class="byte-box" style="border-color:#7dd3fc50;"><span class="byte-hex" style="color:#7dd3fc">F2</span><div class="byte-field-label" style="background:#7dd3fc15; border-top-color:#7dd3fc22; color:#7dd3fc;">Pfx</div></div><div class="byte-note">F2h mandatory prefix</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#22d3ee50;"><span class="byte-hex" style="color:#22d3ee">0F</span><div class="byte-field-label" style="background:#22d3ee15; border-top-color:#22d3ee22; color:#22d3ee;">Escape</div></div><div class="byte-note">0F escape</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#38bdf850;"><span class="byte-hex" style="color:#38bdf8">58</span><div class="byte-field-label" style="background:#38bdf815; border-top-color:#38bdf822; color:#38bdf8;">Opcode</div></div><div class="byte-note">ADDSD</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#a78bfa50;"><span class="byte-hex" style="color:#a78bfa">D3</span><div class="byte-field-label" style="background:#a78bfa15; border-top-color:#a78bfa22; color:#a78bfa;">ModRM</div></div><div class="byte-note">mod=11 reg=xmm2 r/m=xmm3</div></div><div style="display:flex;align-items:flex-start;padding-top:8px;margin-left:6px"><span class="byte-count" style="background:#38bdf814;border-color:#38bdf828;color:#38bdf8;">4 byte(s)</span></div></div></div>
+<div class="example-block" id="example-esc2-imul-rax-rcx"><div class="example-head"><span class="example-mnemonic">IMUL rax, rcx</span><span class="example-asm">; signed multiply</span></div><div class="byte-row"><div class="byte-card"><div class="byte-box" style="border-color:#93c5fd50;"><span class="byte-hex" style="color:#93c5fd">48</span><div class="byte-field-label" style="background:#93c5fd15; border-top-color:#93c5fd22; color:#93c5fd;">REX</div></div><div class="byte-note">REX.W=1</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#22d3ee50;"><span class="byte-hex" style="color:#22d3ee">0F</span><div class="byte-field-label" style="background:#22d3ee15; border-top-color:#22d3ee22; color:#22d3ee;">Escape</div></div><div class="byte-note">0F escape</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#38bdf850;"><span class="byte-hex" style="color:#38bdf8">AF</span><div class="byte-field-label" style="background:#38bdf815; border-top-color:#38bdf822; color:#38bdf8;">Opcode</div></div><div class="byte-note">IMUL r64, r/m64</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#a78bfa50;"><span class="byte-hex" style="color:#a78bfa">C1</span><div class="byte-field-label" style="background:#a78bfa15; border-top-color:#a78bfa22; color:#a78bfa;">ModRM</div></div><div class="byte-note">mod=11 reg=rax r/m=rcx</div></div><div style="display:flex;align-items:flex-start;padding-top:8px;margin-left:6px"><span class="byte-count" style="background:#38bdf814;border-color:#38bdf828;color:#38bdf8;">4 byte(s)</span></div></div></div>
+    <details class="field-notes">
+      <summary>Field Notes</summary>
+      <div class="field-notes-list"><article class="field-note-item"><div class="field-note-title">Legacy Pfx · 0–4 bytes</div><div class="field-note-tip">66h → SSE2 (66 0F)
+F3h → SSE scalar-single
+F2h → SSE scalar-double</div></article>
+<article class="field-note-item"><div class="field-note-title">REX · 40h–4Fh</div><div class="field-note-tip">Same REX.WRXB semantics.</div></article>
+<article class="field-note-item"><div class="field-note-title">0Fh · escape</div><div class="field-note-tip">Escape byte 0Fh selects the two-byte opcode map.
+The mandatory prefix (if any) determines the variant:
+• (none) 0F → original
+• 66 0F   → SSE2
+• F3 0F   → SSEf3
+• F2 0F   → SSEf2</div></article>
+<article class="field-note-item"><div class="field-note-title">Opcode · map 0F</div><div class="field-note-tip">Second opcode byte (00h–FFh).
+28h=MOVAPS, 57h=XORPS, AFh=IMUL r,r/m, AEh=SFENCE/LFENCE</div></article>
+<article class="field-note-item"><div class="field-note-title">ModRM · 1 byte</div><div class="field-note-tip">ModRM where required.</div></article>
+<article class="field-note-item"><div class="field-note-title">SIB · 1 byte</div><div class="field-note-tip">SIB for memory operand.</div></article>
+<article class="field-note-item"><div class="field-note-title">Disp · 0/1/2/4B</div><div class="field-note-tip">Displacement.</div></article>
+<article class="field-note-item"><div class="field-note-title">Imm · 0/1B</div><div class="field-note-tip">Imm8 for select instructions (e.g. PSRLW imm8).</div></article></div>
+    </details>
+  </div>
+</details>
+
+<details class="family row-wrap" id="family-map38" data-family-id="map38" data-group-id="legacy" data-search="0f 38 — three-byte map ssse3, sse4.1, sse4.2, aes-ni, sha… legacy pfx rex 0fh · 38h opcode modrm sib disp pshufb xmm0, xmm1 aesenc xmm0, xmm1 ; ssse3 per-byte shuffle ; aes-ni one round" >
+  <summary class="row-svg-wrap" aria-label="0F 38 — Three-byte map">
+    <svg viewBox="0 0 1040 68" width="100%" aria-hidden="true" focusable="false"><line x1="474" y1="0" x2="474" y2="68" stroke="#0d1525" stroke-width="1"></line><line x1="584" y1="0" x2="584" y2="68" stroke="#0d1525" stroke-width="1"></line><line x1="682" y1="0" x2="682" y2="68" stroke="#0d1525" stroke-width="1"></line><line x1="780" y1="0" x2="780" y2="68" stroke="#0d1525" stroke-width="1"></line><line x1="884" y1="0" x2="884" y2="68" stroke="#0d1525" stroke-width="1"></line><rect x="8" y="2" width="1024" height="64" rx="6" fill="#021212"></rect><line x1="10" y1="34.0" x2="224.0" y2="34.0" stroke="#22d3ee" stroke-width="1.2" opacity="0.28"></line><line x1="308.0" y1="34.0" x2="326.0" y2="34.0" stroke="#22d3ee" stroke-width="1.2" opacity="0.28"></line><polygon points="326.0,30.5 333.0,34.0 326.0,37.5" fill="#22d3ee" opacity="0.38"></polygon><line x1="376.0" y1="34.0" x2="393.0" y2="34.0" stroke="#22d3ee" stroke-width="1.2" opacity="0.28"></line><polygon points="393.0,30.5 400.0,34.0 393.0,37.5" fill="#22d3ee" opacity="0.38"></polygon><line x1="481.0" y1="34.0" x2="496.0" y2="34.0" stroke="#22d3ee" stroke-width="1.2" opacity="0.28"></line><polygon points="496.0,30.5 503.0,34.0 496.0,37.5" fill="#22d3ee" opacity="0.38"></polygon><line x1="588.0" y1="34.0" x2="609.0" y2="34.0" stroke="#22d3ee" stroke-width="1.2" opacity="0.28"></line><polygon points="609.0,30.5 616.0,34.0 609.0,37.5" fill="#22d3ee" opacity="0.38"></polygon><line x1="695.0" y1="34.0" x2="710.0" y2="34.0" stroke="#22d3ee" stroke-width="1.2" opacity="0.28"></line><polygon points="710.0,30.5 717.0,34.0 710.0,37.5" fill="#22d3ee" opacity="0.38"></polygon><line x1="790.0" y1="34.0" x2="805.0" y2="34.0" stroke="#22d3ee" stroke-width="1.2" opacity="0.28"></line><polygon points="805.0,30.5 812.0,34.0 805.0,37.5" fill="#22d3ee" opacity="0.38"></polygon><line x1="891.0" y1="34.0" x2="1024" y2="34.0" stroke="#22d3ee" stroke-width="1.2" opacity="0.28"></line><polygon points="1018,30.5 1025,34.0 1018,37.5" fill="#22d3ee" opacity="0.38"></polygon><g><title>66h selects the most common variants.
+F2 0F 38: CRC32, ADCX.
+(none) 0F 38: MMX PSHUFB, PMADDUBSW.</title><rect x="229.0" y="15.0" width="78" height="38" rx="5" fill="#06090f" stroke="#22d3ee" stroke-width="1.5" stroke-dasharray="5 3" opacity="0.82"></rect><text x="268" y="35.0" text-anchor="middle" fill="#22d3ee" font-family="JetBrains Mono, Fira Code, monospace" font-size="10" font-weight="700" opacity="0.85">Legacy Pfx</text><text x="268" y="48.0" text-anchor="middle" fill="#22d3ee" font-family="JetBrains Mono, Fira Code, monospace" font-size="7.5" opacity="0.38">0–4 bytes</text><text x="302.0" y="25.0" text-anchor="end" fill="#22d3ee" font-family="JetBrains Mono, Fira Code, monospace" font-size="8" opacity="0.32">?</text></g><g><title>REX.WRXB.</title><rect x="333.0" y="15.0" width="42" height="38" rx="5" fill="#06090f" stroke="#22d3ee" stroke-width="1.5" stroke-dasharray="5 3" opacity="0.82"></rect><text x="354" y="35.0" text-anchor="middle" fill="#22d3ee" font-family="JetBrains Mono, Fira Code, monospace" font-size="10" font-weight="700" opacity="0.85">REX</text><text x="354" y="48.0" text-anchor="middle" fill="#22d3ee" font-family="JetBrains Mono, Fira Code, monospace" font-size="7.5" opacity="0.38">40h–4Fh</text><text x="370.0" y="25.0" text-anchor="end" fill="#22d3ee" font-family="JetBrains Mono, Fira Code, monospace" font-size="8" opacity="0.32">?</text></g><g><title>0F 38h → three-byte opcode map.
+SSSE3, SSE4.1, SSE4.2, AES-NI, SHA extensions.</title><rect x="400.0" y="15.0" width="80" height="38" rx="5" fill="#06090f" stroke="#22d3ee" stroke-width="2" stroke-dasharray="none" opacity="1"></rect><text x="440" y="35.0" text-anchor="middle" fill="#22d3ee" font-family="JetBrains Mono, Fira Code, monospace" font-size="10" font-weight="700" opacity="1">0Fh · 38h</text><text x="440" y="48.0" text-anchor="middle" fill="#22d3ee" font-family="JetBrains Mono, Fira Code, monospace" font-size="7.5" opacity="0.38">2 escapes</text></g><g><title>Third opcode byte.</title><rect x="503.0" y="15.0" width="84" height="38" rx="5" fill="#06090f" stroke="#22d3ee" stroke-width="2" stroke-dasharray="none" opacity="1"></rect><text x="545" y="35.0" text-anchor="middle" fill="#22d3ee" font-family="JetBrains Mono, Fira Code, monospace" font-size="10" font-weight="700" opacity="1">Opcode</text><text x="545" y="48.0" text-anchor="middle" fill="#22d3ee" font-family="JetBrains Mono, Fira Code, monospace" font-size="7.5" opacity="0.38">map 0F38</text></g><g><title>ModRM always present in this map.</title><rect x="616.0" y="15.0" width="78" height="38" rx="5" fill="#06090f" stroke="#22d3ee" stroke-width="2" stroke-dasharray="none" opacity="1"></rect><text x="655" y="35.0" text-anchor="middle" fill="#22d3ee" font-family="JetBrains Mono, Fira Code, monospace" font-size="10" font-weight="700" opacity="1">ModRM</text><text x="655" y="48.0" text-anchor="middle" fill="#22d3ee" font-family="JetBrains Mono, Fira Code, monospace" font-size="7.5" opacity="0.38">1 byte</text></g><g><title>SIB for memory.</title><rect x="717.0" y="15.0" width="72" height="38" rx="5" fill="#06090f" stroke="#22d3ee" stroke-width="1.5" stroke-dasharray="5 3" opacity="0.82"></rect><text x="753" y="35.0" text-anchor="middle" fill="#22d3ee" font-family="JetBrains Mono, Fira Code, monospace" font-size="10" font-weight="700" opacity="0.85">SIB</text><text x="753" y="48.0" text-anchor="middle" fill="#22d3ee" font-family="JetBrains Mono, Fira Code, monospace" font-size="7.5" opacity="0.38">1 byte</text><text x="784.0" y="25.0" text-anchor="end" fill="#22d3ee" font-family="JetBrains Mono, Fira Code, monospace" font-size="8" opacity="0.32">?</text></g><g><title>Displacement.</title><rect x="812.0" y="15.0" width="78" height="38" rx="5" fill="#06090f" stroke="#22d3ee" stroke-width="1.5" stroke-dasharray="5 3" opacity="0.82"></rect><text x="851" y="35.0" text-anchor="middle" fill="#22d3ee" font-family="JetBrains Mono, Fira Code, monospace" font-size="10" font-weight="700" opacity="0.85">Disp</text><text x="851" y="48.0" text-anchor="middle" fill="#22d3ee" font-family="JetBrains Mono, Fira Code, monospace" font-size="7.5" opacity="0.38">0/1/2/4B</text><text x="885.0" y="25.0" text-anchor="end" fill="#22d3ee" font-family="JetBrains Mono, Fira Code, monospace" font-size="8" opacity="0.32">?</text></g><text x="14" y="29.0" fill="#22d3ee" font-family="JetBrains Mono, Fira Code, monospace" font-size="10.5" font-weight="700">0F 38 — Three-byte map</text><text x="14" y="43.0" fill="#22d3ee" font-family="JetBrains Mono, Fira Code, monospace" font-size="7.5" opacity="0.42">SSSE3, SSE4.1, SSE4.2, AES-NI, SHA…</text></svg>
+    <span class="row-chevron" aria-hidden="true">▼</span>
+  </summary>
+  <div class="examples" style="border: 1px solid #22d3ee28; border-top: 2px solid #22d3ee; background: #07090f;">
+    <div class="examples-header">
+      <span class="examples-title" style="color: #22d3ee;">0F 38 — Three-byte map</span>
+      <span class="example-count">2 example(s)</span>
+    </div>
+    <div class="example-block" id="example-map38-pshufb-xmm0-xmm1"><div class="example-head"><span class="example-mnemonic">PSHUFB xmm0, xmm1</span><span class="example-asm">; SSSE3 per-byte shuffle</span></div><div class="byte-row"><div class="byte-card"><div class="byte-box" style="border-color:#7dd3fc50;"><span class="byte-hex" style="color:#7dd3fc">66</span><div class="byte-field-label" style="background:#7dd3fc15; border-top-color:#7dd3fc22; color:#7dd3fc;">Pfx</div></div><div class="byte-note">mandatory 66h</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#22d3ee50;"><span class="byte-hex" style="color:#22d3ee">0F</span><div class="byte-field-label" style="background:#22d3ee15; border-top-color:#22d3ee22; color:#22d3ee;">Escape</div></div><div class="byte-note">first escape</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#22d3ee50;"><span class="byte-hex" style="color:#22d3ee">38</span><div class="byte-field-label" style="background:#22d3ee15; border-top-color:#22d3ee22; color:#22d3ee;">Escape</div></div><div class="byte-note">second escape</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#38bdf850;"><span class="byte-hex" style="color:#38bdf8">00</span><div class="byte-field-label" style="background:#38bdf815; border-top-color:#38bdf822; color:#38bdf8;">Opcode</div></div><div class="byte-note">PSHUFB xmm, xmm/m128</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#a78bfa50;"><span class="byte-hex" style="color:#a78bfa">C1</span><div class="byte-field-label" style="background:#a78bfa15; border-top-color:#a78bfa22; color:#a78bfa;">ModRM</div></div><div class="byte-note">mod=11 dst=xmm0 src=xmm1</div></div><div style="display:flex;align-items:flex-start;padding-top:8px;margin-left:6px"><span class="byte-count" style="background:#22d3ee14;border-color:#22d3ee28;color:#22d3ee;">5 byte(s)</span></div></div></div>
+<div class="example-block" id="example-map38-aesenc-xmm0-xmm1"><div class="example-head"><span class="example-mnemonic">AESENC xmm0, xmm1</span><span class="example-asm">; AES-NI one round</span></div><div class="byte-row"><div class="byte-card"><div class="byte-box" style="border-color:#7dd3fc50;"><span class="byte-hex" style="color:#7dd3fc">66</span><div class="byte-field-label" style="background:#7dd3fc15; border-top-color:#7dd3fc22; color:#7dd3fc;">Pfx</div></div><div class="byte-note">mandatory 66h</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#22d3ee50;"><span class="byte-hex" style="color:#22d3ee">0F</span><div class="byte-field-label" style="background:#22d3ee15; border-top-color:#22d3ee22; color:#22d3ee;">Escape</div></div><div class="byte-note">first escape</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#22d3ee50;"><span class="byte-hex" style="color:#22d3ee">38</span><div class="byte-field-label" style="background:#22d3ee15; border-top-color:#22d3ee22; color:#22d3ee;">Escape</div></div><div class="byte-note">second escape</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#38bdf850;"><span class="byte-hex" style="color:#38bdf8">DC</span><div class="byte-field-label" style="background:#38bdf815; border-top-color:#38bdf822; color:#38bdf8;">Opcode</div></div><div class="byte-note">AESENC xmm, xmm/m128</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#a78bfa50;"><span class="byte-hex" style="color:#a78bfa">C1</span><div class="byte-field-label" style="background:#a78bfa15; border-top-color:#a78bfa22; color:#a78bfa;">ModRM</div></div><div class="byte-note">mod=11 dst=xmm0 src=xmm1</div></div><div style="display:flex;align-items:flex-start;padding-top:8px;margin-left:6px"><span class="byte-count" style="background:#22d3ee14;border-color:#22d3ee28;color:#22d3ee;">5 byte(s)</span></div></div></div>
+    <details class="field-notes">
+      <summary>Field Notes</summary>
+      <div class="field-notes-list"><article class="field-note-item"><div class="field-note-title">Legacy Pfx · 0–4 bytes</div><div class="field-note-tip">66h selects the most common variants.
+F2 0F 38: CRC32, ADCX.
+(none) 0F 38: MMX PSHUFB, PMADDUBSW.</div></article>
+<article class="field-note-item"><div class="field-note-title">REX · 40h–4Fh</div><div class="field-note-tip">REX.WRXB.</div></article>
+<article class="field-note-item"><div class="field-note-title">0Fh · 38h · 2 escapes</div><div class="field-note-tip">0F 38h → three-byte opcode map.
+SSSE3, SSE4.1, SSE4.2, AES-NI, SHA extensions.</div></article>
+<article class="field-note-item"><div class="field-note-title">Opcode · map 0F38</div><div class="field-note-tip">Third opcode byte.</div></article>
+<article class="field-note-item"><div class="field-note-title">ModRM · 1 byte</div><div class="field-note-tip">ModRM always present in this map.</div></article>
+<article class="field-note-item"><div class="field-note-title">SIB · 1 byte</div><div class="field-note-tip">SIB for memory.</div></article>
+<article class="field-note-item"><div class="field-note-title">Disp · 0/1/2/4B</div><div class="field-note-tip">Displacement.</div></article></div>
+    </details>
+  </div>
+</details>
+
+<details class="family row-wrap" id="family-map3a" data-family-id="map3a" data-group-id="legacy" data-search="0f 3a — three-byte map all instructions carry a mandatory imm8 control byte legacy pfx rex 0fh · 3ah opcode modrm sib disp imm8 roundss xmm0, xmm1, 0 pblendw xmm0, xmm1, 0xaa ; round to nearest ; blend even words" >
+  <summary class="row-svg-wrap" aria-label="0F 3A — Three-byte map">
+    <svg viewBox="0 0 1040 68" width="100%" aria-hidden="true" focusable="false"><line x1="474" y1="0" x2="474" y2="68" stroke="#0d1525" stroke-width="1"></line><line x1="584" y1="0" x2="584" y2="68" stroke="#0d1525" stroke-width="1"></line><line x1="682" y1="0" x2="682" y2="68" stroke="#0d1525" stroke-width="1"></line><line x1="780" y1="0" x2="780" y2="68" stroke="#0d1525" stroke-width="1"></line><line x1="884" y1="0" x2="884" y2="68" stroke="#0d1525" stroke-width="1"></line><rect x="8" y="2" width="1024" height="64" rx="6" fill="#021014"></rect><line x1="10" y1="34.0" x2="224.0" y2="34.0" stroke="#06b6d4" stroke-width="1.2" opacity="0.28"></line><line x1="308.0" y1="34.0" x2="326.0" y2="34.0" stroke="#06b6d4" stroke-width="1.2" opacity="0.28"></line><polygon points="326.0,30.5 333.0,34.0 326.0,37.5" fill="#06b6d4" opacity="0.38"></polygon><line x1="376.0" y1="34.0" x2="393.0" y2="34.0" stroke="#06b6d4" stroke-width="1.2" opacity="0.28"></line><polygon points="393.0,30.5 400.0,34.0 393.0,37.5" fill="#06b6d4" opacity="0.38"></polygon><line x1="481.0" y1="34.0" x2="496.0" y2="34.0" stroke="#06b6d4" stroke-width="1.2" opacity="0.28"></line><polygon points="496.0,30.5 503.0,34.0 496.0,37.5" fill="#06b6d4" opacity="0.38"></polygon><line x1="588.0" y1="34.0" x2="609.0" y2="34.0" stroke="#06b6d4" stroke-width="1.2" opacity="0.28"></line><polygon points="609.0,30.5 616.0,34.0 609.0,37.5" fill="#06b6d4" opacity="0.38"></polygon><line x1="695.0" y1="34.0" x2="710.0" y2="34.0" stroke="#06b6d4" stroke-width="1.2" opacity="0.28"></line><polygon points="710.0,30.5 717.0,34.0 710.0,37.5" fill="#06b6d4" opacity="0.38"></polygon><line x1="790.0" y1="34.0" x2="805.0" y2="34.0" stroke="#06b6d4" stroke-width="1.2" opacity="0.28"></line><polygon points="805.0,30.5 812.0,34.0 805.0,37.5" fill="#06b6d4" opacity="0.38"></polygon><line x1="891.0" y1="34.0" x2="907.0" y2="34.0" stroke="#06b6d4" stroke-width="1.2" opacity="0.28"></line><polygon points="907.0,30.5 914.0,34.0 907.0,37.5" fill="#06b6d4" opacity="0.38"></polygon><line x1="997.0" y1="34.0" x2="1024" y2="34.0" stroke="#06b6d4" stroke-width="1.2" opacity="0.28"></line><polygon points="1018,30.5 1025,34.0 1018,37.5" fill="#06b6d4" opacity="0.38"></polygon><g><title>66h nearly always required.
+ROUNDSS/D/PS/PD, PBLENDW, PCMPISTRM, AESKEYGENASSIST.</title><rect x="229.0" y="15.0" width="78" height="38" rx="5" fill="#06090f" stroke="#06b6d4" stroke-width="1.5" stroke-dasharray="5 3" opacity="0.82"></rect><text x="268" y="35.0" text-anchor="middle" fill="#06b6d4" font-family="JetBrains Mono, Fira Code, monospace" font-size="10" font-weight="700" opacity="0.85">Legacy Pfx</text><text x="268" y="48.0" text-anchor="middle" fill="#06b6d4" font-family="JetBrains Mono, Fira Code, monospace" font-size="7.5" opacity="0.38">0–4 bytes</text><text x="302.0" y="25.0" text-anchor="end" fill="#06b6d4" font-family="JetBrains Mono, Fira Code, monospace" font-size="8" opacity="0.32">?</text></g><g><title>REX prefix.</title><rect x="333.0" y="15.0" width="42" height="38" rx="5" fill="#06090f" stroke="#06b6d4" stroke-width="1.5" stroke-dasharray="5 3" opacity="0.82"></rect><text x="354" y="35.0" text-anchor="middle" fill="#06b6d4" font-family="JetBrains Mono, Fira Code, monospace" font-size="10" font-weight="700" opacity="0.85">REX</text><text x="354" y="48.0" text-anchor="middle" fill="#06b6d4" font-family="JetBrains Mono, Fira Code, monospace" font-size="7.5" opacity="0.38">40h–4Fh</text><text x="370.0" y="25.0" text-anchor="end" fill="#06b6d4" font-family="JetBrains Mono, Fira Code, monospace" font-size="8" opacity="0.32">?</text></g><g><title>0F 3Ah → three-byte map.
+Every instruction ends with an imm8 control byte:
+rounding mode, blend mask, comparison predicate, lane selector…</title><rect x="400.0" y="15.0" width="80" height="38" rx="5" fill="#06090f" stroke="#06b6d4" stroke-width="2" stroke-dasharray="none" opacity="1"></rect><text x="440" y="35.0" text-anchor="middle" fill="#06b6d4" font-family="JetBrains Mono, Fira Code, monospace" font-size="10" font-weight="700" opacity="1">0Fh · 3Ah</text><text x="440" y="48.0" text-anchor="middle" fill="#06b6d4" font-family="JetBrains Mono, Fira Code, monospace" font-size="7.5" opacity="0.38">2 escapes</text></g><g><title>Third opcode byte.</title><rect x="503.0" y="15.0" width="84" height="38" rx="5" fill="#06090f" stroke="#06b6d4" stroke-width="2" stroke-dasharray="none" opacity="1"></rect><text x="545" y="35.0" text-anchor="middle" fill="#06b6d4" font-family="JetBrains Mono, Fira Code, monospace" font-size="10" font-weight="700" opacity="1">Opcode</text><text x="545" y="48.0" text-anchor="middle" fill="#06b6d4" font-family="JetBrains Mono, Fira Code, monospace" font-size="7.5" opacity="0.38">map 0F3A</text></g><g><title>ModRM always present.</title><rect x="616.0" y="15.0" width="78" height="38" rx="5" fill="#06090f" stroke="#06b6d4" stroke-width="2" stroke-dasharray="none" opacity="1"></rect><text x="655" y="35.0" text-anchor="middle" fill="#06b6d4" font-family="JetBrains Mono, Fira Code, monospace" font-size="10" font-weight="700" opacity="1">ModRM</text><text x="655" y="48.0" text-anchor="middle" fill="#06b6d4" font-family="JetBrains Mono, Fira Code, monospace" font-size="7.5" opacity="0.38">1 byte</text></g><g><title>SIB when needed.</title><rect x="717.0" y="15.0" width="72" height="38" rx="5" fill="#06090f" stroke="#06b6d4" stroke-width="1.5" stroke-dasharray="5 3" opacity="0.82"></rect><text x="753" y="35.0" text-anchor="middle" fill="#06b6d4" font-family="JetBrains Mono, Fira Code, monospace" font-size="10" font-weight="700" opacity="0.85">SIB</text><text x="753" y="48.0" text-anchor="middle" fill="#06b6d4" font-family="JetBrains Mono, Fira Code, monospace" font-size="7.5" opacity="0.38">1 byte</text><text x="784.0" y="25.0" text-anchor="end" fill="#06b6d4" font-family="JetBrains Mono, Fira Code, monospace" font-size="8" opacity="0.32">?</text></g><g><title>Displacement.</title><rect x="812.0" y="15.0" width="78" height="38" rx="5" fill="#06090f" stroke="#06b6d4" stroke-width="1.5" stroke-dasharray="5 3" opacity="0.82"></rect><text x="851" y="35.0" text-anchor="middle" fill="#06b6d4" font-family="JetBrains Mono, Fira Code, monospace" font-size="10" font-weight="700" opacity="0.85">Disp</text><text x="851" y="48.0" text-anchor="middle" fill="#06b6d4" font-family="JetBrains Mono, Fira Code, monospace" font-size="7.5" opacity="0.38">0/1/2/4B</text><text x="885.0" y="25.0" text-anchor="end" fill="#06b6d4" font-family="JetBrains Mono, Fira Code, monospace" font-size="8" opacity="0.32">?</text></g><g><title>Imm8 always required — a control byte, not data:
+• ROUNDSS: rounding mode + SAE flag
+• PCMPISTRI: comparison mode, output select
+• PBLENDW: blend mask for 8 word lanes
+• PALIGNR: byte shift amount</title><rect x="914.0" y="15.0" width="82" height="38" rx="5" fill="#06090f" stroke="#06b6d4" stroke-width="2" stroke-dasharray="none" opacity="1"></rect><text x="955" y="35.0" text-anchor="middle" fill="#06b6d4" font-family="JetBrains Mono, Fira Code, monospace" font-size="10" font-weight="700" opacity="1">Imm8</text><text x="955" y="48.0" text-anchor="middle" fill="#06b6d4" font-family="JetBrains Mono, Fira Code, monospace" font-size="7.5" opacity="0.38">always present</text></g><text x="14" y="29.0" fill="#06b6d4" font-family="JetBrains Mono, Fira Code, monospace" font-size="10.5" font-weight="700">0F 3A — Three-byte map</text><text x="14" y="43.0" fill="#06b6d4" font-family="JetBrains Mono, Fira Code, monospace" font-size="7.5" opacity="0.42">All instructions carry a mandatory imm8 control byte</text></svg>
+    <span class="row-chevron" aria-hidden="true">▼</span>
+  </summary>
+  <div class="examples" style="border: 1px solid #06b6d428; border-top: 2px solid #06b6d4; background: #07090f;">
+    <div class="examples-header">
+      <span class="examples-title" style="color: #06b6d4;">0F 3A — Three-byte map</span>
+      <span class="example-count">2 example(s)</span>
+    </div>
+    <div class="example-block" id="example-map3a-roundss-xmm0-xmm1-0"><div class="example-head"><span class="example-mnemonic">ROUNDSS xmm0, xmm1, 0</span><span class="example-asm">; round to nearest</span></div><div class="byte-row"><div class="byte-card"><div class="byte-box" style="border-color:#7dd3fc50;"><span class="byte-hex" style="color:#7dd3fc">66</span><div class="byte-field-label" style="background:#7dd3fc15; border-top-color:#7dd3fc22; color:#7dd3fc;">Pfx</div></div><div class="byte-note">mandatory 66h</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#22d3ee50;"><span class="byte-hex" style="color:#22d3ee">0F</span><div class="byte-field-label" style="background:#22d3ee15; border-top-color:#22d3ee22; color:#22d3ee;">Escape</div></div><div class="byte-note">first escape</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#22d3ee50;"><span class="byte-hex" style="color:#22d3ee">3A</span><div class="byte-field-label" style="background:#22d3ee15; border-top-color:#22d3ee22; color:#22d3ee;">Escape</div></div><div class="byte-note">second escape</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#38bdf850;"><span class="byte-hex" style="color:#38bdf8">0A</span><div class="byte-field-label" style="background:#38bdf815; border-top-color:#38bdf822; color:#38bdf8;">Opcode</div></div><div class="byte-note">ROUNDSS</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#a78bfa50;"><span class="byte-hex" style="color:#a78bfa">C1</span><div class="byte-field-label" style="background:#a78bfa15; border-top-color:#a78bfa22; color:#a78bfa;">ModRM</div></div><div class="byte-note">mod=11 dst=xmm0 src=xmm1</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#f59e0b50;"><span class="byte-hex" style="color:#f59e0b">00</span><div class="byte-field-label" style="background:#f59e0b15; border-top-color:#f59e0b22; color:#f59e0b;">Imm8</div></div><div class="byte-note">rounding mode=00 (nearest), SAE=0</div></div><div style="display:flex;align-items:flex-start;padding-top:8px;margin-left:6px"><span class="byte-count" style="background:#06b6d414;border-color:#06b6d428;color:#06b6d4;">6 byte(s)</span></div></div></div>
+<div class="example-block" id="example-map3a-pblendw-xmm0-xmm1-0xaa"><div class="example-head"><span class="example-mnemonic">PBLENDW xmm0, xmm1, 0xAA</span><span class="example-asm">; blend even words</span></div><div class="byte-row"><div class="byte-card"><div class="byte-box" style="border-color:#7dd3fc50;"><span class="byte-hex" style="color:#7dd3fc">66</span><div class="byte-field-label" style="background:#7dd3fc15; border-top-color:#7dd3fc22; color:#7dd3fc;">Pfx</div></div><div class="byte-note">mandatory 66h</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#22d3ee50;"><span class="byte-hex" style="color:#22d3ee">0F</span><div class="byte-field-label" style="background:#22d3ee15; border-top-color:#22d3ee22; color:#22d3ee;">Escape</div></div><div class="byte-note">escape</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#22d3ee50;"><span class="byte-hex" style="color:#22d3ee">3A</span><div class="byte-field-label" style="background:#22d3ee15; border-top-color:#22d3ee22; color:#22d3ee;">Escape</div></div><div class="byte-note">escape</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#38bdf850;"><span class="byte-hex" style="color:#38bdf8">0E</span><div class="byte-field-label" style="background:#38bdf815; border-top-color:#38bdf822; color:#38bdf8;">Opcode</div></div><div class="byte-note">PBLENDW</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#a78bfa50;"><span class="byte-hex" style="color:#a78bfa">C1</span><div class="byte-field-label" style="background:#a78bfa15; border-top-color:#a78bfa22; color:#a78bfa;">ModRM</div></div><div class="byte-note">mod=11 dst=xmm0 src=xmm1</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#f59e0b50;"><span class="byte-hex" style="color:#f59e0b">AA</span><div class="byte-field-label" style="background:#f59e0b15; border-top-color:#f59e0b22; color:#f59e0b;">Imm8</div></div><div class="byte-note">blend mask 10101010b → even lanes</div></div><div style="display:flex;align-items:flex-start;padding-top:8px;margin-left:6px"><span class="byte-count" style="background:#06b6d414;border-color:#06b6d428;color:#06b6d4;">6 byte(s)</span></div></div></div>
+    <details class="field-notes">
+      <summary>Field Notes</summary>
+      <div class="field-notes-list"><article class="field-note-item"><div class="field-note-title">Legacy Pfx · 0–4 bytes</div><div class="field-note-tip">66h nearly always required.
+ROUNDSS/D/PS/PD, PBLENDW, PCMPISTRM, AESKEYGENASSIST.</div></article>
+<article class="field-note-item"><div class="field-note-title">REX · 40h–4Fh</div><div class="field-note-tip">REX prefix.</div></article>
+<article class="field-note-item"><div class="field-note-title">0Fh · 3Ah · 2 escapes</div><div class="field-note-tip">0F 3Ah → three-byte map.
+Every instruction ends with an imm8 control byte:
+rounding mode, blend mask, comparison predicate, lane selector…</div></article>
+<article class="field-note-item"><div class="field-note-title">Opcode · map 0F3A</div><div class="field-note-tip">Third opcode byte.</div></article>
+<article class="field-note-item"><div class="field-note-title">ModRM · 1 byte</div><div class="field-note-tip">ModRM always present.</div></article>
+<article class="field-note-item"><div class="field-note-title">SIB · 1 byte</div><div class="field-note-tip">SIB when needed.</div></article>
+<article class="field-note-item"><div class="field-note-title">Disp · 0/1/2/4B</div><div class="field-note-tip">Displacement.</div></article>
+<article class="field-note-item"><div class="field-note-title">Imm8 · always present</div><div class="field-note-tip">Imm8 always required — a control byte, not data:
+• ROUNDSS: rounding mode + SAE flag
+• PCMPISTRI: comparison mode, output select
+• PBLENDW: blend mask for 8 word lanes
+• PALIGNR: byte shift amount</div></article></div>
+    </details>
+  </div>
+</details>
+
+<details class="family row-wrap" id="family-tdnow" data-family-id="tdnow" data-group-id="legacy" data-search="3dnow! (0f 0f) amd only — actual opcode byte lives after modrm/sib/disp legacy pfx rex 0fh · 0fh modrm sib disp opcode! pfadd mm0, mm1 pfmul mm2, [rsi] ; packed float add ; multiply from memory" >
+  <summary class="row-svg-wrap" aria-label="3DNow! (0F 0F)">
+    <svg viewBox="0 0 1040 68" width="100%" aria-hidden="true" focusable="false"><line x1="474" y1="0" x2="474" y2="68" stroke="#0d1525" stroke-width="1"></line><line x1="584" y1="0" x2="584" y2="68" stroke="#0d1525" stroke-width="1"></line><line x1="682" y1="0" x2="682" y2="68" stroke="#0d1525" stroke-width="1"></line><line x1="780" y1="0" x2="780" y2="68" stroke="#0d1525" stroke-width="1"></line><line x1="884" y1="0" x2="884" y2="68" stroke="#0d1525" stroke-width="1"></line><rect x="8" y="2" width="1024" height="64" rx="6" fill="#120600"></rect><line x1="10" y1="34.0" x2="224.0" y2="34.0" stroke="#fb923c" stroke-width="1.2" opacity="0.28"></line><line x1="308.0" y1="34.0" x2="326.0" y2="34.0" stroke="#fb923c" stroke-width="1.2" opacity="0.28"></line><polygon points="326.0,30.5 333.0,34.0 326.0,37.5" fill="#fb923c" opacity="0.38"></polygon><line x1="376.0" y1="34.0" x2="393.0" y2="34.0" stroke="#fb923c" stroke-width="1.2" opacity="0.28"></line><polygon points="393.0,30.5 400.0,34.0 393.0,37.5" fill="#fb923c" opacity="0.38"></polygon><line x1="481.0" y1="34.0" x2="609.0" y2="34.0" stroke="#fb923c" stroke-width="1.2" opacity="0.28"></line><polygon points="609.0,30.5 616.0,34.0 609.0,37.5" fill="#fb923c" opacity="0.38"></polygon><line x1="695.0" y1="34.0" x2="710.0" y2="34.0" stroke="#fb923c" stroke-width="1.2" opacity="0.28"></line><polygon points="710.0,30.5 717.0,34.0 710.0,37.5" fill="#fb923c" opacity="0.38"></polygon><line x1="790.0" y1="34.0" x2="805.0" y2="34.0" stroke="#fb923c" stroke-width="1.2" opacity="0.28"></line><polygon points="805.0,30.5 812.0,34.0 805.0,37.5" fill="#fb923c" opacity="0.38"></polygon><line x1="891.0" y1="34.0" x2="907.0" y2="34.0" stroke="#fb923c" stroke-width="1.2" opacity="0.28"></line><polygon points="907.0,30.5 914.0,34.0 907.0,37.5" fill="#fb923c" opacity="0.38"></polygon><line x1="997.0" y1="34.0" x2="1024" y2="34.0" stroke="#fb923c" stroke-width="1.2" opacity="0.28"></line><polygon points="1018,30.5 1025,34.0 1018,37.5" fill="#fb923c" opacity="0.38"></polygon><g><title>Legacy prefixes rarely used in 3DNow!.</title><rect x="229.0" y="15.0" width="78" height="38" rx="5" fill="#06090f" stroke="#fb923c" stroke-width="1.5" stroke-dasharray="5 3" opacity="0.82"></rect><text x="268" y="35.0" text-anchor="middle" fill="#fb923c" font-family="JetBrains Mono, Fira Code, monospace" font-size="10" font-weight="700" opacity="0.85">Legacy Pfx</text><text x="268" y="48.0" text-anchor="middle" fill="#fb923c" font-family="JetBrains Mono, Fira Code, monospace" font-size="7.5" opacity="0.38">0–4 bytes</text><text x="302.0" y="25.0" text-anchor="end" fill="#fb923c" font-family="JetBrains Mono, Fira Code, monospace" font-size="8" opacity="0.32">?</text></g><g><title>REX in 64-bit mode.</title><rect x="333.0" y="15.0" width="42" height="38" rx="5" fill="#06090f" stroke="#fb923c" stroke-width="1.5" stroke-dasharray="5 3" opacity="0.82"></rect><text x="354" y="35.0" text-anchor="middle" fill="#fb923c" font-family="JetBrains Mono, Fira Code, monospace" font-size="10" font-weight="700" opacity="0.85">REX</text><text x="354" y="48.0" text-anchor="middle" fill="#fb923c" font-family="JetBrains Mono, Fira Code, monospace" font-size="7.5" opacity="0.38">40h–4Fh</text><text x="370.0" y="25.0" text-anchor="end" fill="#fb923c" font-family="JetBrains Mono, Fira Code, monospace" font-size="8" opacity="0.32">?</text></g><g><title>Unusual design: two 0F escape bytes.
+The real opcode is the LAST byte — after all operand fields.
+This minimised decoder changes for the K6 era.
+AMD-only; deprecated on Zen 4+.</title><rect x="400.0" y="15.0" width="80" height="38" rx="5" fill="#06090f" stroke="#fb923c" stroke-width="2" stroke-dasharray="none" opacity="1"></rect><text x="440" y="35.0" text-anchor="middle" fill="#fb923c" font-family="JetBrains Mono, Fira Code, monospace" font-size="10" font-weight="700" opacity="1">0Fh · 0Fh</text><text x="440" y="48.0" text-anchor="middle" fill="#fb923c" font-family="JetBrains Mono, Fira Code, monospace" font-size="7.5" opacity="0.38">2 escapes</text></g><g><title>Source = MMX reg or 64-bit memory.
+Destination always in ModRM.reg.</title><rect x="616.0" y="15.0" width="78" height="38" rx="5" fill="#06090f" stroke="#fb923c" stroke-width="2" stroke-dasharray="none" opacity="1"></rect><text x="655" y="35.0" text-anchor="middle" fill="#fb923c" font-family="JetBrains Mono, Fira Code, monospace" font-size="10" font-weight="700" opacity="1">ModRM</text><text x="655" y="48.0" text-anchor="middle" fill="#fb923c" font-family="JetBrains Mono, Fira Code, monospace" font-size="7.5" opacity="0.38">1 byte</text></g><g><title>SIB for memory source.</title><rect x="717.0" y="15.0" width="72" height="38" rx="5" fill="#06090f" stroke="#fb923c" stroke-width="1.5" stroke-dasharray="5 3" opacity="0.82"></rect><text x="753" y="35.0" text-anchor="middle" fill="#fb923c" font-family="JetBrains Mono, Fira Code, monospace" font-size="10" font-weight="700" opacity="0.85">SIB</text><text x="753" y="48.0" text-anchor="middle" fill="#fb923c" font-family="JetBrains Mono, Fira Code, monospace" font-size="7.5" opacity="0.38">1 byte</text><text x="784.0" y="25.0" text-anchor="end" fill="#fb923c" font-family="JetBrains Mono, Fira Code, monospace" font-size="8" opacity="0.32">?</text></g><g><title>Displacement for memory source.</title><rect x="812.0" y="15.0" width="78" height="38" rx="5" fill="#06090f" stroke="#fb923c" stroke-width="1.5" stroke-dasharray="5 3" opacity="0.82"></rect><text x="851" y="35.0" text-anchor="middle" fill="#fb923c" font-family="JetBrains Mono, Fira Code, monospace" font-size="10" font-weight="700" opacity="0.85">Disp</text><text x="851" y="48.0" text-anchor="middle" fill="#fb923c" font-family="JetBrains Mono, Fira Code, monospace" font-size="7.5" opacity="0.38">0/1/2/4B</text><text x="885.0" y="25.0" text-anchor="end" fill="#fb923c" font-family="JetBrains Mono, Fira Code, monospace" font-size="8" opacity="0.32">?</text></g><g><title>The actual opcode occupies the imm8 slot!
+• 9Eh = PFADD
+• AEh = PFSUBR
+• B4h = PFMUL
+• 1Dh = PF2ID, 0Dh = PI2FD
+AMD-only. Deprecated (Zen 4+).</title><rect x="914.0" y="15.0" width="82" height="38" rx="5" fill="#06090f" stroke="#fb923c" stroke-width="2" stroke-dasharray="none" opacity="1"></rect><text x="955" y="35.0" text-anchor="middle" fill="#fb923c" font-family="JetBrains Mono, Fira Code, monospace" font-size="10" font-weight="700" opacity="1">Opcode!</text><text x="955" y="48.0" text-anchor="middle" fill="#fb923c" font-family="JetBrains Mono, Fira Code, monospace" font-size="7.5" opacity="0.38">in imm8 slot</text></g><text x="14" y="29.0" fill="#fb923c" font-family="JetBrains Mono, Fira Code, monospace" font-size="10.5" font-weight="700">3DNow! (0F 0F)</text><text x="14" y="43.0" fill="#fb923c" font-family="JetBrains Mono, Fira Code, monospace" font-size="7.5" opacity="0.42">AMD only — actual opcode byte lives after ModRM/SIB/Disp</text></svg>
+    <span class="row-chevron" aria-hidden="true">▼</span>
+  </summary>
+  <div class="examples" style="border: 1px solid #fb923c28; border-top: 2px solid #fb923c; background: #07090f;">
+    <div class="examples-header">
+      <span class="examples-title" style="color: #fb923c;">3DNow! (0F 0F)</span>
+      <span class="example-count">2 example(s)</span>
+    </div>
+    <div class="example-block" id="example-tdnow-pfadd-mm0-mm1"><div class="example-head"><span class="example-mnemonic">PFADD mm0, mm1</span><span class="example-asm">; packed float add</span></div><div class="byte-row"><div class="byte-card"><div class="byte-box" style="border-color:#22d3ee50;"><span class="byte-hex" style="color:#22d3ee">0F</span><div class="byte-field-label" style="background:#22d3ee15; border-top-color:#22d3ee22; color:#22d3ee;">Escape</div></div><div class="byte-note">first escape</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#22d3ee50;"><span class="byte-hex" style="color:#22d3ee">0F</span><div class="byte-field-label" style="background:#22d3ee15; border-top-color:#22d3ee22; color:#22d3ee;">Escape</div></div><div class="byte-note">second escape → 3DNow!</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#a78bfa50;"><span class="byte-hex" style="color:#a78bfa">C1</span><div class="byte-field-label" style="background:#a78bfa15; border-top-color:#a78bfa22; color:#a78bfa;">ModRM</div></div><div class="byte-note">mod=11 dst=mm0 src=mm1</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#fb923c50;"><span class="byte-hex" style="color:#fb923c">9E</span><div class="byte-field-label" style="background:#fb923c15; border-top-color:#fb923c22; color:#fb923c;">Opcode!</div></div><div class="byte-note">PFADD — opcode is LAST, after operands</div></div><div style="display:flex;align-items:flex-start;padding-top:8px;margin-left:6px"><span class="byte-count" style="background:#fb923c14;border-color:#fb923c28;color:#fb923c;">4 byte(s)</span></div></div></div>
+<div class="example-block" id="example-tdnow-pfmul-mm2-rsi"><div class="example-head"><span class="example-mnemonic">PFMUL mm2, [rsi]</span><span class="example-asm">; multiply from memory</span></div><div class="byte-row"><div class="byte-card"><div class="byte-box" style="border-color:#22d3ee50;"><span class="byte-hex" style="color:#22d3ee">0F</span><div class="byte-field-label" style="background:#22d3ee15; border-top-color:#22d3ee22; color:#22d3ee;">Escape</div></div><div class="byte-note">first escape</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#22d3ee50;"><span class="byte-hex" style="color:#22d3ee">0F</span><div class="byte-field-label" style="background:#22d3ee15; border-top-color:#22d3ee22; color:#22d3ee;">Escape</div></div><div class="byte-note">second escape</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#a78bfa50;"><span class="byte-hex" style="color:#a78bfa">16</span><div class="byte-field-label" style="background:#a78bfa15; border-top-color:#a78bfa22; color:#a78bfa;">ModRM</div></div><div class="byte-note">mod=00 dst=mm2 r/m=rsi(6)</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#fb923c50;"><span class="byte-hex" style="color:#fb923c">B4</span><div class="byte-field-label" style="background:#fb923c15; border-top-color:#fb923c22; color:#fb923c;">Opcode!</div></div><div class="byte-note">PFMUL — after the ModRM</div></div><div style="display:flex;align-items:flex-start;padding-top:8px;margin-left:6px"><span class="byte-count" style="background:#fb923c14;border-color:#fb923c28;color:#fb923c;">4 byte(s)</span></div></div></div>
+    <details class="field-notes">
+      <summary>Field Notes</summary>
+      <div class="field-notes-list"><article class="field-note-item"><div class="field-note-title">Legacy Pfx · 0–4 bytes</div><div class="field-note-tip">Legacy prefixes rarely used in 3DNow!.</div></article>
+<article class="field-note-item"><div class="field-note-title">REX · 40h–4Fh</div><div class="field-note-tip">REX in 64-bit mode.</div></article>
+<article class="field-note-item"><div class="field-note-title">0Fh · 0Fh · 2 escapes</div><div class="field-note-tip">Unusual design: two 0F escape bytes.
+The real opcode is the LAST byte — after all operand fields.
+This minimised decoder changes for the K6 era.
+AMD-only; deprecated on Zen 4+.</div></article>
+<article class="field-note-item"><div class="field-note-title">ModRM · 1 byte</div><div class="field-note-tip">Source = MMX reg or 64-bit memory.
+Destination always in ModRM.reg.</div></article>
+<article class="field-note-item"><div class="field-note-title">SIB · 1 byte</div><div class="field-note-tip">SIB for memory source.</div></article>
+<article class="field-note-item"><div class="field-note-title">Disp · 0/1/2/4B</div><div class="field-note-tip">Displacement for memory source.</div></article>
+<article class="field-note-item"><div class="field-note-title">Opcode! · in imm8 slot</div><div class="field-note-tip">The actual opcode occupies the imm8 slot!
+• 9Eh = PFADD
+• AEh = PFSUBR
+• B4h = PFMUL
+• 1Dh = PF2ID, 0Dh = PI2FD
+AMD-only. Deprecated (Zen 4+).</div></article></div>
+    </details>
+  </div>
+</details>
+
+<div class="group-divider" data-divider-group="vex"><div class="line" style="background:#a78bfa"></div><span class="label" style="color:#a78bfa">VEX</span><div class="line" style="background:#a78bfa"></div></div>
+<details class="family row-wrap" id="family-vex2" data-family-id="vex2" data-group-id="vex" data-search="vex 2-byte (c5h) map 1 only · 128/256-bit · rex and legacy prefixes forbidden c5h r̄ · v̄v̄v̄v̄ · l · pp opcode modrm sib disp imm vmovaps xmm1, xmm2 vaddps ymm0, ymm1, ymm2 vaddsd xmm0, xmm1, xmm2 ; no rex, no 0f, no 66 needed ; l=1 selects 256-bit ymm ; f2 via pp=11 — no f2 byte emitted" >
+  <summary class="row-svg-wrap" aria-label="VEX 2-byte (C5h)">
+    <svg viewBox="0 0 1040 68" width="100%" aria-hidden="true" focusable="false"><line x1="474" y1="0" x2="474" y2="68" stroke="#0d1525" stroke-width="1"></line><line x1="584" y1="0" x2="584" y2="68" stroke="#0d1525" stroke-width="1"></line><line x1="682" y1="0" x2="682" y2="68" stroke="#0d1525" stroke-width="1"></line><line x1="780" y1="0" x2="780" y2="68" stroke="#0d1525" stroke-width="1"></line><line x1="884" y1="0" x2="884" y2="68" stroke="#0d1525" stroke-width="1"></line><rect x="8" y="2" width="1024" height="64" rx="6" fill="#0d0620"></rect><line x1="10" y1="34.0" x2="274.0" y2="34.0" stroke="#a78bfa" stroke-width="1.2" opacity="0.28"></line><line x1="322.0" y1="34.0" x2="340.0" y2="34.0" stroke="#a78bfa" stroke-width="1.2" opacity="0.28"></line><polygon points="340.0,30.5 347.0,34.0 340.0,37.5" fill="#a78bfa" opacity="0.38"></polygon><line x1="474.0" y1="34.0" x2="496.0" y2="34.0" stroke="#a78bfa" stroke-width="1.2" opacity="0.28"></line><polygon points="496.0,30.5 503.0,34.0 496.0,37.5" fill="#a78bfa" opacity="0.38"></polygon><line x1="588.0" y1="34.0" x2="609.0" y2="34.0" stroke="#a78bfa" stroke-width="1.2" opacity="0.28"></line><polygon points="609.0,30.5 616.0,34.0 609.0,37.5" fill="#a78bfa" opacity="0.38"></polygon><line x1="695.0" y1="34.0" x2="710.0" y2="34.0" stroke="#a78bfa" stroke-width="1.2" opacity="0.28"></line><polygon points="710.0,30.5 717.0,34.0 710.0,37.5" fill="#a78bfa" opacity="0.38"></polygon><line x1="790.0" y1="34.0" x2="805.0" y2="34.0" stroke="#a78bfa" stroke-width="1.2" opacity="0.28"></line><polygon points="805.0,30.5 812.0,34.0 805.0,37.5" fill="#a78bfa" opacity="0.38"></polygon><line x1="891.0" y1="34.0" x2="907.0" y2="34.0" stroke="#a78bfa" stroke-width="1.2" opacity="0.28"></line><polygon points="907.0,30.5 914.0,34.0 907.0,37.5" fill="#a78bfa" opacity="0.38"></polygon><line x1="997.0" y1="34.0" x2="1024" y2="34.0" stroke="#a78bfa" stroke-width="1.2" opacity="0.28"></line><polygon points="1018,30.5 1025,34.0 1018,37.5" fill="#a78bfa" opacity="0.38"></polygon><g><title>VEX 2-byte prefix marker C5h.
+All legacy prefixes and REX are FORBIDDEN.
+The payload encodes what REX/mandatory-prefix would have been.
+In 32-bit mode 0xC5 can also start LDS; VEX2 is recognized when the following byte matches the VEX2 payload pattern (bits[7:6]=11).</title><rect x="279.0" y="15.0" width="42" height="38" rx="5" fill="#06090f" stroke="#a78bfa" stroke-width="2" stroke-dasharray="none" opacity="1"></rect><text x="300" y="35.0" text-anchor="middle" fill="#a78bfa" font-family="JetBrains Mono, Fira Code, monospace" font-size="10" font-weight="700" opacity="1">C5h</text><text x="300" y="48.0" text-anchor="middle" fill="#a78bfa" font-family="JetBrains Mono, Fira Code, monospace" font-size="7.5" opacity="0.38">VEX 2B marker</text></g><g><title>One payload byte, 8 bits:
+• [7] R̄   inverted REX.R
+• [6:3] v̄v̄v̄v̄  inverted vvvv — 2nd source register
+• [2] L   0=128b XMM, 1=256b YMM
+• [1:0] pp  implied mandatory prefix:
+   00=none  01=66h  10=F3h  11=F2h
+
+Map 1 only. No REX.W / X / B → use 3-byte for those.</title><rect x="347.0" y="15.0" width="126" height="38" rx="5" fill="#06090f" stroke="#a78bfa" stroke-width="2" stroke-dasharray="none" opacity="1"></rect><text x="410" y="35.0" text-anchor="middle" fill="#a78bfa" font-family="JetBrains Mono, Fira Code, monospace" font-size="8" font-weight="700" opacity="1">R̄ · v̄v̄v̄v̄ · L · pp</text><text x="410" y="48.0" text-anchor="middle" fill="#a78bfa" font-family="JetBrains Mono, Fira Code, monospace" font-size="7.5" opacity="0.38">1 payload byte</text></g><g><title>Opcode from map 1 (equivalent to 0F xx).
+Destination in ModRM.reg, extended by R̄.</title><rect x="503.0" y="15.0" width="84" height="38" rx="5" fill="#06090f" stroke="#a78bfa" stroke-width="2" stroke-dasharray="none" opacity="1"></rect><text x="545" y="35.0" text-anchor="middle" fill="#a78bfa" font-family="JetBrains Mono, Fira Code, monospace" font-size="10" font-weight="700" opacity="1">Opcode</text><text x="545" y="48.0" text-anchor="middle" fill="#a78bfa" font-family="JetBrains Mono, Fira Code, monospace" font-size="7.5" opacity="0.38">map 1</text></g><g><title>ModRM.</title><rect x="616.0" y="15.0" width="78" height="38" rx="5" fill="#06090f" stroke="#a78bfa" stroke-width="1.5" stroke-dasharray="5 3" opacity="0.82"></rect><text x="655" y="35.0" text-anchor="middle" fill="#a78bfa" font-family="JetBrains Mono, Fira Code, monospace" font-size="10" font-weight="700" opacity="0.85">ModRM</text><text x="655" y="48.0" text-anchor="middle" fill="#a78bfa" font-family="JetBrains Mono, Fira Code, monospace" font-size="7.5" opacity="0.38">1 byte</text><text x="689.0" y="25.0" text-anchor="end" fill="#a78bfa" font-family="JetBrains Mono, Fira Code, monospace" font-size="8" opacity="0.32">?</text></g><g><title>SIB for memory.</title><rect x="717.0" y="15.0" width="72" height="38" rx="5" fill="#06090f" stroke="#a78bfa" stroke-width="1.5" stroke-dasharray="5 3" opacity="0.82"></rect><text x="753" y="35.0" text-anchor="middle" fill="#a78bfa" font-family="JetBrains Mono, Fira Code, monospace" font-size="10" font-weight="700" opacity="0.85">SIB</text><text x="753" y="48.0" text-anchor="middle" fill="#a78bfa" font-family="JetBrains Mono, Fira Code, monospace" font-size="7.5" opacity="0.38">1 byte</text><text x="784.0" y="25.0" text-anchor="end" fill="#a78bfa" font-family="JetBrains Mono, Fira Code, monospace" font-size="8" opacity="0.32">?</text></g><g><title>Displacement.</title><rect x="812.0" y="15.0" width="78" height="38" rx="5" fill="#06090f" stroke="#a78bfa" stroke-width="1.5" stroke-dasharray="5 3" opacity="0.82"></rect><text x="851" y="35.0" text-anchor="middle" fill="#a78bfa" font-family="JetBrains Mono, Fira Code, monospace" font-size="10" font-weight="700" opacity="0.85">Disp</text><text x="851" y="48.0" text-anchor="middle" fill="#a78bfa" font-family="JetBrains Mono, Fira Code, monospace" font-size="7.5" opacity="0.38">0/1/2/4B</text><text x="885.0" y="25.0" text-anchor="end" fill="#a78bfa" font-family="JetBrains Mono, Fira Code, monospace" font-size="8" opacity="0.32">?</text></g><g><title>Optional imm8.
+For 4-operand (is4) forms: bits[7:4] encode a 4th register.</title><rect x="914.0" y="15.0" width="82" height="38" rx="5" fill="#06090f" stroke="#a78bfa" stroke-width="1.5" stroke-dasharray="5 3" opacity="0.82"></rect><text x="955" y="35.0" text-anchor="middle" fill="#a78bfa" font-family="JetBrains Mono, Fira Code, monospace" font-size="10" font-weight="700" opacity="0.85">Imm</text><text x="955" y="48.0" text-anchor="middle" fill="#a78bfa" font-family="JetBrains Mono, Fira Code, monospace" font-size="7.5" opacity="0.38">0/1B</text><text x="991.0" y="25.0" text-anchor="end" fill="#a78bfa" font-family="JetBrains Mono, Fira Code, monospace" font-size="8" opacity="0.32">?</text></g><text x="14" y="29.0" fill="#a78bfa" font-family="JetBrains Mono, Fira Code, monospace" font-size="10.5" font-weight="700">VEX 2-byte (C5h)</text><text x="14" y="43.0" fill="#a78bfa" font-family="JetBrains Mono, Fira Code, monospace" font-size="7.5" opacity="0.42">Map 1 only · 128/256-bit · REX and legacy prefixes forbidden</text></svg>
+    <span class="row-chevron" aria-hidden="true">▼</span>
+  </summary>
+  <div class="examples" style="border: 1px solid #a78bfa28; border-top: 2px solid #a78bfa; background: #07090f;">
+    <div class="examples-header">
+      <span class="examples-title" style="color: #a78bfa;">VEX 2-byte (C5h)</span>
+      <span class="example-count">3 example(s)</span>
+    </div>
+    <div class="example-block" id="example-vex2-vmovaps-xmm1-xmm2"><div class="example-head"><span class="example-mnemonic">VMOVAPS xmm1, xmm2</span><span class="example-asm">; no REX, no 0F, no 66 needed</span></div><div class="byte-row"><div class="byte-card"><div class="byte-box" style="border-color:#a78bfa50;"><span class="byte-hex" style="color:#a78bfa">C5</span><div class="byte-field-label" style="background:#a78bfa15; border-top-color:#a78bfa22; color:#a78bfa;">C5h</div></div><div class="byte-note">VEX 2-byte marker</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#c084fc50;"><span class="byte-hex" style="color:#c084fc">F8</span><div class="byte-field-label" style="background:#c084fc15; border-top-color:#c084fc22; color:#c084fc;">Payload</div></div><div class="byte-note">R̄=1 vvvv=1111(unused) L=0(XMM) pp=00</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#38bdf850;"><span class="byte-hex" style="color:#38bdf8">28</span><div class="byte-field-label" style="background:#38bdf815; border-top-color:#38bdf822; color:#38bdf8;">Opcode</div></div><div class="byte-note">VMOVAPS (map 1 = 0F 28)</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#a78bfa50;"><span class="byte-hex" style="color:#a78bfa">CA</span><div class="byte-field-label" style="background:#a78bfa15; border-top-color:#a78bfa22; color:#a78bfa;">ModRM</div></div><div class="byte-note">mod=11 reg=xmm1 r/m=xmm2</div></div><div style="display:flex;align-items:flex-start;padding-top:8px;margin-left:6px"><span class="byte-count" style="background:#a78bfa14;border-color:#a78bfa28;color:#a78bfa;">4 byte(s)</span></div></div></div>
+<div class="example-block" id="example-vex2-vaddps-ymm0-ymm1-ymm2"><div class="example-head"><span class="example-mnemonic">VADDPS ymm0, ymm1, ymm2</span><span class="example-asm">; L=1 selects 256-bit YMM</span></div><div class="byte-row"><div class="byte-card"><div class="byte-box" style="border-color:#a78bfa50;"><span class="byte-hex" style="color:#a78bfa">C5</span><div class="byte-field-label" style="background:#a78bfa15; border-top-color:#a78bfa22; color:#a78bfa;">C5h</div></div><div class="byte-note">VEX 2-byte marker</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#c084fc50;"><span class="byte-hex" style="color:#c084fc">F4</span><div class="byte-field-label" style="background:#c084fc15; border-top-color:#c084fc22; color:#c084fc;">Payload</div></div><div class="byte-note">R̄=1 vvvv=1110(ymm1) L=1(YMM) pp=00</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#38bdf850;"><span class="byte-hex" style="color:#38bdf8">58</span><div class="byte-field-label" style="background:#38bdf815; border-top-color:#38bdf822; color:#38bdf8;">Opcode</div></div><div class="byte-note">VADDPS</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#a78bfa50;"><span class="byte-hex" style="color:#a78bfa">C2</span><div class="byte-field-label" style="background:#a78bfa15; border-top-color:#a78bfa22; color:#a78bfa;">ModRM</div></div><div class="byte-note">mod=11 reg=ymm0 r/m=ymm2</div></div><div style="display:flex;align-items:flex-start;padding-top:8px;margin-left:6px"><span class="byte-count" style="background:#a78bfa14;border-color:#a78bfa28;color:#a78bfa;">4 byte(s)</span></div></div></div>
+<div class="example-block" id="example-vex2-vaddsd-xmm0-xmm1-xmm2"><div class="example-head"><span class="example-mnemonic">VADDSD xmm0, xmm1, xmm2</span><span class="example-asm">; F2 via pp=11 — no F2 byte emitted</span></div><div class="byte-row"><div class="byte-card"><div class="byte-box" style="border-color:#a78bfa50;"><span class="byte-hex" style="color:#a78bfa">C5</span><div class="byte-field-label" style="background:#a78bfa15; border-top-color:#a78bfa22; color:#a78bfa;">C5h</div></div><div class="byte-note">VEX 2-byte marker</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#c084fc50;"><span class="byte-hex" style="color:#c084fc">F3</span><div class="byte-field-label" style="background:#c084fc15; border-top-color:#c084fc22; color:#c084fc;">Payload</div></div><div class="byte-note">R̄=1 vvvv=1110(xmm1) L=0 pp=11(F2h)</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#38bdf850;"><span class="byte-hex" style="color:#38bdf8">58</span><div class="byte-field-label" style="background:#38bdf815; border-top-color:#38bdf822; color:#38bdf8;">Opcode</div></div><div class="byte-note">VADDSD</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#a78bfa50;"><span class="byte-hex" style="color:#a78bfa">C2</span><div class="byte-field-label" style="background:#a78bfa15; border-top-color:#a78bfa22; color:#a78bfa;">ModRM</div></div><div class="byte-note">mod=11 reg=xmm0 r/m=xmm2</div></div><div style="display:flex;align-items:flex-start;padding-top:8px;margin-left:6px"><span class="byte-count" style="background:#a78bfa14;border-color:#a78bfa28;color:#a78bfa;">4 byte(s)</span></div></div></div>
+    <details class="field-notes">
+      <summary>Field Notes</summary>
+      <div class="field-notes-list"><article class="field-note-item"><div class="field-note-title">C5h · VEX 2B marker</div><div class="field-note-tip">VEX 2-byte prefix marker C5h.
+All legacy prefixes and REX are FORBIDDEN.
+The payload encodes what REX/mandatory-prefix would have been.
+In 32-bit mode 0xC5 can also start LDS; VEX2 is recognized when the following byte matches the VEX2 payload pattern (bits[7:6]=11).</div></article>
+<article class="field-note-item"><div class="field-note-title">R̄ · v̄v̄v̄v̄ · L · pp · 1 payload byte</div><div class="field-note-tip">One payload byte, 8 bits:
+• [7] R̄   inverted REX.R
+• [6:3] v̄v̄v̄v̄  inverted vvvv — 2nd source register
+• [2] L   0=128b XMM, 1=256b YMM
+• [1:0] pp  implied mandatory prefix:
+   00=none  01=66h  10=F3h  11=F2h
+
+Map 1 only. No REX.W / X / B → use 3-byte for those.</div></article>
+<article class="field-note-item"><div class="field-note-title">Opcode · map 1</div><div class="field-note-tip">Opcode from map 1 (equivalent to 0F xx).
+Destination in ModRM.reg, extended by R̄.</div></article>
+<article class="field-note-item"><div class="field-note-title">ModRM · 1 byte</div><div class="field-note-tip">ModRM.</div></article>
+<article class="field-note-item"><div class="field-note-title">SIB · 1 byte</div><div class="field-note-tip">SIB for memory.</div></article>
+<article class="field-note-item"><div class="field-note-title">Disp · 0/1/2/4B</div><div class="field-note-tip">Displacement.</div></article>
+<article class="field-note-item"><div class="field-note-title">Imm · 0/1B</div><div class="field-note-tip">Optional imm8.
+For 4-operand (is4) forms: bits[7:4] encode a 4th register.</div></article></div>
+    </details>
+  </div>
+</details>
+
+<details class="family row-wrap" id="family-vex3" data-family-id="vex3" data-group-id="vex" data-search="vex 3-byte (c4h) maps 1/2/3 · full r/x/b extension · rex.w · no legacy prefixes c4h r̄x̄b̄·mmm  ·  w·v̄v̄v̄v̄·l·pp opcode modrm sib disp imm vfmadd213ps ymm0, ymm1, ymm2 vpermilps ymm0, ymm1, imm8 ; map 2 (0f38) instruction ; map 3 (0f3a), shuffle control" >
+  <summary class="row-svg-wrap" aria-label="VEX 3-byte (C4h)">
+    <svg viewBox="0 0 1040 68" width="100%" aria-hidden="true" focusable="false"><line x1="474" y1="0" x2="474" y2="68" stroke="#0d1525" stroke-width="1"></line><line x1="584" y1="0" x2="584" y2="68" stroke="#0d1525" stroke-width="1"></line><line x1="682" y1="0" x2="682" y2="68" stroke="#0d1525" stroke-width="1"></line><line x1="780" y1="0" x2="780" y2="68" stroke="#0d1525" stroke-width="1"></line><line x1="884" y1="0" x2="884" y2="68" stroke="#0d1525" stroke-width="1"></line><rect x="8" y="2" width="1024" height="64" rx="6" fill="#100826"></rect><line x1="10" y1="34.0" x2="274.0" y2="34.0" stroke="#c084fc" stroke-width="1.2" opacity="0.28"></line><line x1="322.0" y1="34.0" x2="340.0" y2="34.0" stroke="#c084fc" stroke-width="1.2" opacity="0.28"></line><polygon points="340.0,30.5 347.0,34.0 340.0,37.5" fill="#c084fc" opacity="0.38"></polygon><line x1="474.0" y1="34.0" x2="496.0" y2="34.0" stroke="#c084fc" stroke-width="1.2" opacity="0.28"></line><polygon points="496.0,30.5 503.0,34.0 496.0,37.5" fill="#c084fc" opacity="0.38"></polygon><line x1="588.0" y1="34.0" x2="609.0" y2="34.0" stroke="#c084fc" stroke-width="1.2" opacity="0.28"></line><polygon points="609.0,30.5 616.0,34.0 609.0,37.5" fill="#c084fc" opacity="0.38"></polygon><line x1="695.0" y1="34.0" x2="710.0" y2="34.0" stroke="#c084fc" stroke-width="1.2" opacity="0.28"></line><polygon points="710.0,30.5 717.0,34.0 710.0,37.5" fill="#c084fc" opacity="0.38"></polygon><line x1="790.0" y1="34.0" x2="805.0" y2="34.0" stroke="#c084fc" stroke-width="1.2" opacity="0.28"></line><polygon points="805.0,30.5 812.0,34.0 805.0,37.5" fill="#c084fc" opacity="0.38"></polygon><line x1="891.0" y1="34.0" x2="907.0" y2="34.0" stroke="#c084fc" stroke-width="1.2" opacity="0.28"></line><polygon points="907.0,30.5 914.0,34.0 907.0,37.5" fill="#c084fc" opacity="0.38"></polygon><line x1="997.0" y1="34.0" x2="1024" y2="34.0" stroke="#c084fc" stroke-width="1.2" opacity="0.28"></line><polygon points="1018,30.5 1025,34.0 1018,37.5" fill="#c084fc" opacity="0.38"></polygon><g><title>VEX 3-byte marker C4h.
+Forbids legacy prefixes and REX.
+Required when: maps 2 or 3 needed, REX.W needed, or REX.X/B extension needed.</title><rect x="279.0" y="15.0" width="42" height="38" rx="5" fill="#06090f" stroke="#c084fc" stroke-width="2" stroke-dasharray="none" opacity="1"></rect><text x="300" y="35.0" text-anchor="middle" fill="#c084fc" font-family="JetBrains Mono, Fira Code, monospace" font-size="10" font-weight="700" opacity="1">C4h</text><text x="300" y="48.0" text-anchor="middle" fill="#c084fc" font-family="JetBrains Mono, Fira Code, monospace" font-size="7.5" opacity="0.38">VEX 3B marker</text></g><g><title>Byte 1: [7]R̄ [6]X̄ [5]B̄ [4:0]map
+• R̄ – inverted REX.R
+• X̄ – inverted REX.X
+• B̄ – inverted REX.B
+• map: 001=map1  010=map2  011=map3
+
+Byte 2: [7]W [6:3]v̄v̄v̄v̄ [2]L [1:0]pp
+• W – REX.W / element type
+• vvvv – inverted NDS register
+• L – vector length
+• pp – implied mandatory prefix</title><rect x="347.0" y="15.0" width="126" height="38" rx="5" fill="#06090f" stroke="#c084fc" stroke-width="2" stroke-dasharray="none" opacity="1"></rect><text x="410" y="35.0" text-anchor="middle" fill="#c084fc" font-family="JetBrains Mono, Fira Code, monospace" font-size="8" font-weight="700" opacity="1">R̄X̄B̄·mmm  ·  W·v̄v̄v̄v̄·L·pp</text><text x="410" y="48.0" text-anchor="middle" fill="#c084fc" font-family="JetBrains Mono, Fira Code, monospace" font-size="7.5" opacity="0.38">2 payload bytes</text></g><g><title>Opcode from the selected map.</title><rect x="503.0" y="15.0" width="84" height="38" rx="5" fill="#06090f" stroke="#c084fc" stroke-width="2" stroke-dasharray="none" opacity="1"></rect><text x="545" y="35.0" text-anchor="middle" fill="#c084fc" font-family="JetBrains Mono, Fira Code, monospace" font-size="10" font-weight="700" opacity="1">Opcode</text><text x="545" y="48.0" text-anchor="middle" fill="#c084fc" font-family="JetBrains Mono, Fira Code, monospace" font-size="7.5" opacity="0.38">map 1/2/3</text></g><g><title>All register fields fully extended.</title><rect x="616.0" y="15.0" width="78" height="38" rx="5" fill="#06090f" stroke="#c084fc" stroke-width="1.5" stroke-dasharray="5 3" opacity="0.82"></rect><text x="655" y="35.0" text-anchor="middle" fill="#c084fc" font-family="JetBrains Mono, Fira Code, monospace" font-size="10" font-weight="700" opacity="0.85">ModRM</text><text x="655" y="48.0" text-anchor="middle" fill="#c084fc" font-family="JetBrains Mono, Fira Code, monospace" font-size="7.5" opacity="0.38">1 byte</text><text x="689.0" y="25.0" text-anchor="end" fill="#c084fc" font-family="JetBrains Mono, Fira Code, monospace" font-size="8" opacity="0.32">?</text></g><g><title>SIB for memory.</title><rect x="717.0" y="15.0" width="72" height="38" rx="5" fill="#06090f" stroke="#c084fc" stroke-width="1.5" stroke-dasharray="5 3" opacity="0.82"></rect><text x="753" y="35.0" text-anchor="middle" fill="#c084fc" font-family="JetBrains Mono, Fira Code, monospace" font-size="10" font-weight="700" opacity="0.85">SIB</text><text x="753" y="48.0" text-anchor="middle" fill="#c084fc" font-family="JetBrains Mono, Fira Code, monospace" font-size="7.5" opacity="0.38">1 byte</text><text x="784.0" y="25.0" text-anchor="end" fill="#c084fc" font-family="JetBrains Mono, Fira Code, monospace" font-size="8" opacity="0.32">?</text></g><g><title>Displacement.</title><rect x="812.0" y="15.0" width="78" height="38" rx="5" fill="#06090f" stroke="#c084fc" stroke-width="1.5" stroke-dasharray="5 3" opacity="0.82"></rect><text x="851" y="35.0" text-anchor="middle" fill="#c084fc" font-family="JetBrains Mono, Fira Code, monospace" font-size="10" font-weight="700" opacity="0.85">Disp</text><text x="851" y="48.0" text-anchor="middle" fill="#c084fc" font-family="JetBrains Mono, Fira Code, monospace" font-size="7.5" opacity="0.38">0/1/2/4B</text><text x="885.0" y="25.0" text-anchor="end" fill="#c084fc" font-family="JetBrains Mono, Fira Code, monospace" font-size="8" opacity="0.32">?</text></g><g><title>Optional imm8. Bits[7:4] may encode a 4th register (is4).</title><rect x="914.0" y="15.0" width="82" height="38" rx="5" fill="#06090f" stroke="#c084fc" stroke-width="1.5" stroke-dasharray="5 3" opacity="0.82"></rect><text x="955" y="35.0" text-anchor="middle" fill="#c084fc" font-family="JetBrains Mono, Fira Code, monospace" font-size="10" font-weight="700" opacity="0.85">Imm</text><text x="955" y="48.0" text-anchor="middle" fill="#c084fc" font-family="JetBrains Mono, Fira Code, monospace" font-size="7.5" opacity="0.38">0/1B</text><text x="991.0" y="25.0" text-anchor="end" fill="#c084fc" font-family="JetBrains Mono, Fira Code, monospace" font-size="8" opacity="0.32">?</text></g><text x="14" y="29.0" fill="#c084fc" font-family="JetBrains Mono, Fira Code, monospace" font-size="10.5" font-weight="700">VEX 3-byte (C4h)</text><text x="14" y="43.0" fill="#c084fc" font-family="JetBrains Mono, Fira Code, monospace" font-size="7.5" opacity="0.42">Maps 1/2/3 · full R/X/B extension · REX.W · no legacy prefixes</text></svg>
+    <span class="row-chevron" aria-hidden="true">▼</span>
+  </summary>
+  <div class="examples" style="border: 1px solid #c084fc28; border-top: 2px solid #c084fc; background: #07090f;">
+    <div class="examples-header">
+      <span class="examples-title" style="color: #c084fc;">VEX 3-byte (C4h)</span>
+      <span class="example-count">2 example(s)</span>
+    </div>
+    <div class="example-block" id="example-vex3-vfmadd213ps-ymm0-ymm1-ymm2"><div class="example-head"><span class="example-mnemonic">VFMADD213PS ymm0, ymm1, ymm2</span><span class="example-asm">; map 2 (0F38) instruction</span></div><div class="byte-row"><div class="byte-card"><div class="byte-box" style="border-color:#c084fc50;"><span class="byte-hex" style="color:#c084fc">C4</span><div class="byte-field-label" style="background:#c084fc15; border-top-color:#c084fc22; color:#c084fc;">C4h</div></div><div class="byte-note">VEX 3-byte marker</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#a78bfa50;"><span class="byte-hex" style="color:#a78bfa">E2</span><div class="byte-field-label" style="background:#a78bfa15; border-top-color:#a78bfa22; color:#a78bfa;">Payload1</div></div><div class="byte-note">R̄=1 X̄=1 B̄=1 map=010 (0F38)</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#a78bfa50;"><span class="byte-hex" style="color:#a78bfa">75</span><div class="byte-field-label" style="background:#a78bfa15; border-top-color:#a78bfa22; color:#a78bfa;">Payload2</div></div><div class="byte-note">W=0 vvvv=1110(ymm1) L=1(YMM) pp=01(66h)</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#38bdf850;"><span class="byte-hex" style="color:#38bdf8">A8</span><div class="byte-field-label" style="background:#38bdf815; border-top-color:#38bdf822; color:#38bdf8;">Opcode</div></div><div class="byte-note">VFMADD213PS</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#a78bfa50;"><span class="byte-hex" style="color:#a78bfa">C2</span><div class="byte-field-label" style="background:#a78bfa15; border-top-color:#a78bfa22; color:#a78bfa;">ModRM</div></div><div class="byte-note">mod=11 reg=ymm0 r/m=ymm2</div></div><div style="display:flex;align-items:flex-start;padding-top:8px;margin-left:6px"><span class="byte-count" style="background:#c084fc14;border-color:#c084fc28;color:#c084fc;">5 byte(s)</span></div></div></div>
+<div class="example-block" id="example-vex3-vpermilps-ymm0-ymm1-imm8"><div class="example-head"><span class="example-mnemonic">VPERMILPS ymm0, ymm1, imm8</span><span class="example-asm">; map 3 (0F3A), shuffle control</span></div><div class="byte-row"><div class="byte-card"><div class="byte-box" style="border-color:#c084fc50;"><span class="byte-hex" style="color:#c084fc">C4</span><div class="byte-field-label" style="background:#c084fc15; border-top-color:#c084fc22; color:#c084fc;">C4h</div></div><div class="byte-note">VEX 3-byte marker</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#a78bfa50;"><span class="byte-hex" style="color:#a78bfa">E3</span><div class="byte-field-label" style="background:#a78bfa15; border-top-color:#a78bfa22; color:#a78bfa;">Payload1</div></div><div class="byte-note">R̄=1 X̄=1 B̄=1 map=011 (0F3A)</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#a78bfa50;"><span class="byte-hex" style="color:#a78bfa">7D</span><div class="byte-field-label" style="background:#a78bfa15; border-top-color:#a78bfa22; color:#a78bfa;">Payload2</div></div><div class="byte-note">W=0 vvvv=1111 L=1(YMM) pp=01(66h)</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#38bdf850;"><span class="byte-hex" style="color:#38bdf8">04</span><div class="byte-field-label" style="background:#38bdf815; border-top-color:#38bdf822; color:#38bdf8;">Opcode</div></div><div class="byte-note">VPERMILPS</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#a78bfa50;"><span class="byte-hex" style="color:#a78bfa">C1</span><div class="byte-field-label" style="background:#a78bfa15; border-top-color:#a78bfa22; color:#a78bfa;">ModRM</div></div><div class="byte-note">mod=11 reg=ymm0 r/m=ymm1</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#f59e0b50;"><span class="byte-hex" style="color:#f59e0b">E4</span><div class="byte-field-label" style="background:#f59e0b15; border-top-color:#f59e0b22; color:#f59e0b;">Imm8</div></div><div class="byte-note">shuffle control byte</div></div><div style="display:flex;align-items:flex-start;padding-top:8px;margin-left:6px"><span class="byte-count" style="background:#c084fc14;border-color:#c084fc28;color:#c084fc;">6 byte(s)</span></div></div></div>
+    <details class="field-notes">
+      <summary>Field Notes</summary>
+      <div class="field-notes-list"><article class="field-note-item"><div class="field-note-title">C4h · VEX 3B marker</div><div class="field-note-tip">VEX 3-byte marker C4h.
+Forbids legacy prefixes and REX.
+Required when: maps 2 or 3 needed, REX.W needed, or REX.X/B extension needed.</div></article>
+<article class="field-note-item"><div class="field-note-title">R̄X̄B̄·mmm  ·  W·v̄v̄v̄v̄·L·pp · 2 payload bytes</div><div class="field-note-tip">Byte 1: [7]R̄ [6]X̄ [5]B̄ [4:0]map
+• R̄ – inverted REX.R
+• X̄ – inverted REX.X
+• B̄ – inverted REX.B
+• map: 001=map1  010=map2  011=map3
+
+Byte 2: [7]W [6:3]v̄v̄v̄v̄ [2]L [1:0]pp
+• W – REX.W / element type
+• vvvv – inverted NDS register
+• L – vector length
+• pp – implied mandatory prefix</div></article>
+<article class="field-note-item"><div class="field-note-title">Opcode · map 1/2/3</div><div class="field-note-tip">Opcode from the selected map.</div></article>
+<article class="field-note-item"><div class="field-note-title">ModRM · 1 byte</div><div class="field-note-tip">All register fields fully extended.</div></article>
+<article class="field-note-item"><div class="field-note-title">SIB · 1 byte</div><div class="field-note-tip">SIB for memory.</div></article>
+<article class="field-note-item"><div class="field-note-title">Disp · 0/1/2/4B</div><div class="field-note-tip">Displacement.</div></article>
+<article class="field-note-item"><div class="field-note-title">Imm · 0/1B</div><div class="field-note-tip">Optional imm8. Bits[7:4] may encode a 4th register (is4).</div></article></div>
+    </details>
+  </div>
+</details>
+
+<div class="group-divider" data-divider-group="evex"><div class="line" style="background:#f472b6"></div><span class="label" style="color:#f472b6">EVEX</span><div class="line" style="background:#f472b6"></div></div>
+<details class="family row-wrap" id="family-evex" data-family-id="evex" data-group-id="evex" data-search="evex (62h) avx-512 / avx10 · zmm/ymm/xmm · opmask k0–k7 · broadcast · embedded rounding 62h p0 · p1 · p2 opcode modrm sib/vsib disp*n imm8 vaddps zmm0{k1}{z}, zmm1, zmm2 vaddps xmm16, xmm17, [rsi] vaddps zmm0, zmm1, zmm2, {rn-sae} ; 512-bit, masked, zeroing ; evex extends to 32 simd regs ; embedded rounding (b=1 on reg src)" >
+  <summary class="row-svg-wrap" aria-label="EVEX (62h)">
+    <svg viewBox="0 0 1040 68" width="100%" aria-hidden="true" focusable="false"><line x1="474" y1="0" x2="474" y2="68" stroke="#0d1525" stroke-width="1"></line><line x1="584" y1="0" x2="584" y2="68" stroke="#0d1525" stroke-width="1"></line><line x1="682" y1="0" x2="682" y2="68" stroke="#0d1525" stroke-width="1"></line><line x1="780" y1="0" x2="780" y2="68" stroke="#0d1525" stroke-width="1"></line><line x1="884" y1="0" x2="884" y2="68" stroke="#0d1525" stroke-width="1"></line><rect x="8" y="2" width="1024" height="64" rx="6" fill="#180410"></rect><line x1="10" y1="34.0" x2="274.0" y2="34.0" stroke="#f472b6" stroke-width="1.2" opacity="0.28"></line><line x1="322.0" y1="34.0" x2="340.0" y2="34.0" stroke="#f472b6" stroke-width="1.2" opacity="0.28"></line><polygon points="340.0,30.5 347.0,34.0 340.0,37.5" fill="#f472b6" opacity="0.38"></polygon><line x1="474.0" y1="34.0" x2="496.0" y2="34.0" stroke="#f472b6" stroke-width="1.2" opacity="0.28"></line><polygon points="496.0,30.5 503.0,34.0 496.0,37.5" fill="#f472b6" opacity="0.38"></polygon><line x1="588.0" y1="34.0" x2="609.0" y2="34.0" stroke="#f472b6" stroke-width="1.2" opacity="0.28"></line><polygon points="609.0,30.5 616.0,34.0 609.0,37.5" fill="#f472b6" opacity="0.38"></polygon><line x1="695.0" y1="34.0" x2="710.0" y2="34.0" stroke="#f472b6" stroke-width="1.2" opacity="0.28"></line><polygon points="710.0,30.5 717.0,34.0 710.0,37.5" fill="#f472b6" opacity="0.38"></polygon><line x1="790.0" y1="34.0" x2="805.0" y2="34.0" stroke="#f472b6" stroke-width="1.2" opacity="0.28"></line><polygon points="805.0,30.5 812.0,34.0 805.0,37.5" fill="#f472b6" opacity="0.38"></polygon><line x1="891.0" y1="34.0" x2="907.0" y2="34.0" stroke="#f472b6" stroke-width="1.2" opacity="0.28"></line><polygon points="907.0,30.5 914.0,34.0 907.0,37.5" fill="#f472b6" opacity="0.38"></polygon><line x1="997.0" y1="34.0" x2="1024" y2="34.0" stroke="#f472b6" stroke-width="1.2" opacity="0.28"></line><polygon points="1018,30.5 1025,34.0 1018,37.5" fill="#f472b6" opacity="0.38"></polygon><g><title>EVEX marker 62h.
+In 64-bit mode BOUND is removed, freeing 62h.
+REX and VEX strictly forbidden.
+Total instruction length ≤ 15 bytes.</title><rect x="279.0" y="15.0" width="42" height="38" rx="5" fill="#06090f" stroke="#f472b6" stroke-width="2" stroke-dasharray="none" opacity="1"></rect><text x="300" y="35.0" text-anchor="middle" fill="#f472b6" font-family="JetBrains Mono, Fira Code, monospace" font-size="10" font-weight="700" opacity="1">62h</text><text x="300" y="48.0" text-anchor="middle" fill="#f472b6" font-family="JetBrains Mono, Fira Code, monospace" font-size="7.5" opacity="0.38">EVEX marker</text></g><g><title>P0: R̄ X̄ B̄ R̄&#x27; · 00 · mm
+• R̄X̄B̄ – inverted REX.RXB
+• R̄&#x27; – extends reg to 5 bits (32 regs)
+• mm: 01=map1, 02=map2, 03=map3, 05=MAP5, 06=MAP6
+
+P1: W · v̄v̄v̄v̄ · 1 · pp
+• W – operand size / element type
+• vvvv – inverted NDS register
+• pp – implied mandatory prefix
+
+P2: z · L&#x27; · L · b · V̄&#x27; · aaa
+• z – 0=merge masking, 1=zero masking
+• L&#x27;L – 00=XMM, 01=YMM, 10=ZMM
+• b – memory: broadcast; register: embedded rounding/SAE
+• V̄&#x27; – extends vvvv to 5 bits (32 NDS regs)
+• aaa – opmask: k0=no mask, k1–k7=apply mask</title><rect x="347.0" y="15.0" width="126" height="38" rx="5" fill="#06090f" stroke="#f472b6" stroke-width="2" stroke-dasharray="none" opacity="1"></rect><text x="410" y="35.0" text-anchor="middle" fill="#f472b6" font-family="JetBrains Mono, Fira Code, monospace" font-size="10" font-weight="700" opacity="1">P0 · P1 · P2</text><text x="410" y="48.0" text-anchor="middle" fill="#f472b6" font-family="JetBrains Mono, Fira Code, monospace" font-size="7.5" opacity="0.38">3 payload bytes</text></g><g><title>Opcode from selected map.
+MAP5/MAP6: AVX-512 FP16 (AVX10):
+VMOVSH, VADDPH, VCVTPH2PS…</title><rect x="503.0" y="15.0" width="84" height="38" rx="5" fill="#06090f" stroke="#f472b6" stroke-width="2" stroke-dasharray="none" opacity="1"></rect><text x="545" y="35.0" text-anchor="middle" fill="#f472b6" font-family="JetBrains Mono, Fira Code, monospace" font-size="10" font-weight="700" opacity="1">Opcode</text><text x="545" y="48.0" text-anchor="middle" fill="#f472b6" font-family="JetBrains Mono, Fira Code, monospace" font-size="7.5" opacity="0.38">maps 1–6</text></g><g><title>Always present.
+reg extended to 5 bits (R + R&#x27;) → 32 ZMM registers.</title><rect x="616.0" y="15.0" width="78" height="38" rx="5" fill="#06090f" stroke="#f472b6" stroke-width="2" stroke-dasharray="none" opacity="1"></rect><text x="655" y="35.0" text-anchor="middle" fill="#f472b6" font-family="JetBrains Mono, Fira Code, monospace" font-size="10" font-weight="700" opacity="1">ModRM</text><text x="655" y="48.0" text-anchor="middle" fill="#f472b6" font-family="JetBrains Mono, Fira Code, monospace" font-size="7.5" opacity="0.38">1 byte</text></g><g><title>SIB: standard base-index-scale.
+VSIB: index is XMM/YMM/ZMM — used by gather/scatter:
+  VGATHERDPS, VPGATHERDD, VSCATTERQPD…</title><rect x="717.0" y="15.0" width="72" height="38" rx="5" fill="#06090f" stroke="#f472b6" stroke-width="1.5" stroke-dasharray="5 3" opacity="0.82"></rect><text x="753" y="35.0" text-anchor="middle" fill="#f472b6" font-family="JetBrains Mono, Fira Code, monospace" font-size="10" font-weight="700" opacity="0.85">SIB/VSIB</text><text x="753" y="48.0" text-anchor="middle" fill="#f472b6" font-family="JetBrains Mono, Fira Code, monospace" font-size="7.5" opacity="0.38">1 byte</text><text x="784.0" y="25.0" text-anchor="end" fill="#f472b6" font-family="JetBrains Mono, Fira Code, monospace" font-size="8" opacity="0.32">?</text></g><g><title>Compressed disp8*N:
+1-byte disp8 scaled by tuple size N.
+Range: [−128N, 127N] — compact for common strides.
+4-byte full displacement also available.</title><rect x="812.0" y="15.0" width="78" height="38" rx="5" fill="#06090f" stroke="#f472b6" stroke-width="1.5" stroke-dasharray="5 3" opacity="0.82"></rect><text x="851" y="35.0" text-anchor="middle" fill="#f472b6" font-family="JetBrains Mono, Fira Code, monospace" font-size="10" font-weight="700" opacity="0.85">Disp*N</text><text x="851" y="48.0" text-anchor="middle" fill="#f472b6" font-family="JetBrains Mono, Fira Code, monospace" font-size="7.5" opacity="0.38">0/1*/4B</text><text x="885.0" y="25.0" text-anchor="end" fill="#f472b6" font-family="JetBrains Mono, Fira Code, monospace" font-size="8" opacity="0.32">?</text></g><g><title>Optional imm8 for rounding, permute control,
+shift count, comparison predicate.</title><rect x="914.0" y="15.0" width="82" height="38" rx="5" fill="#06090f" stroke="#f472b6" stroke-width="1.5" stroke-dasharray="5 3" opacity="0.82"></rect><text x="955" y="35.0" text-anchor="middle" fill="#f472b6" font-family="JetBrains Mono, Fira Code, monospace" font-size="10" font-weight="700" opacity="0.85">Imm8</text><text x="955" y="48.0" text-anchor="middle" fill="#f472b6" font-family="JetBrains Mono, Fira Code, monospace" font-size="7.5" opacity="0.38">0/1B</text><text x="991.0" y="25.0" text-anchor="end" fill="#f472b6" font-family="JetBrains Mono, Fira Code, monospace" font-size="8" opacity="0.32">?</text></g><text x="14" y="29.0" fill="#f472b6" font-family="JetBrains Mono, Fira Code, monospace" font-size="10.5" font-weight="700">EVEX (62h)</text><text x="14" y="43.0" fill="#f472b6" font-family="JetBrains Mono, Fira Code, monospace" font-size="7.5" opacity="0.42">AVX-512 / AVX10 · ZMM/YMM/XMM · opmask k0–k7 · broadcast · embedded rounding</text></svg>
+    <span class="row-chevron" aria-hidden="true">▼</span>
+  </summary>
+  <div class="examples" style="border: 1px solid #f472b628; border-top: 2px solid #f472b6; background: #07090f;">
+    <div class="examples-header">
+      <span class="examples-title" style="color: #f472b6;">EVEX (62h)</span>
+      <span class="example-count">3 example(s)</span>
+    </div>
+    <div class="example-block" id="example-evex-vaddps-zmm0-k1-z-zmm1-zmm2"><div class="example-head"><span class="example-mnemonic">VADDPS zmm0{k1}{z}, zmm1, zmm2</span><span class="example-asm">; 512-bit, masked, zeroing</span></div><div class="byte-row"><div class="byte-card"><div class="byte-box" style="border-color:#f472b650;"><span class="byte-hex" style="color:#f472b6">62</span><div class="byte-field-label" style="background:#f472b615; border-top-color:#f472b622; color:#f472b6;">62h</div></div><div class="byte-note">EVEX marker</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#fb718550;"><span class="byte-hex" style="color:#fb7185">F1</span><div class="byte-field-label" style="background:#fb718515; border-top-color:#fb718522; color:#fb7185;">P0</div></div><div class="byte-note">R̄=1 X̄=1 B̄=1 R̄&#x27;=1 mmm=001</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#fb718550;"><span class="byte-hex" style="color:#fb7185">74</span><div class="byte-field-label" style="background:#fb718515; border-top-color:#fb718522; color:#fb7185;">P1</div></div><div class="byte-note">W=0 vvvv=1110(zmm1) pp=00</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#fb718550;"><span class="byte-hex" style="color:#fb7185">C9</span><div class="byte-field-label" style="background:#fb718515; border-top-color:#fb718522; color:#fb7185;">P2</div></div><div class="byte-note">z=1(zero) L&#x27;L=10(ZMM) b=0 V&#x27;=1 aaa=001(k1)</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#38bdf850;"><span class="byte-hex" style="color:#38bdf8">58</span><div class="byte-field-label" style="background:#38bdf815; border-top-color:#38bdf822; color:#38bdf8;">Opcode</div></div><div class="byte-note">VADDPS</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#a78bfa50;"><span class="byte-hex" style="color:#a78bfa">C2</span><div class="byte-field-label" style="background:#a78bfa15; border-top-color:#a78bfa22; color:#a78bfa;">ModRM</div></div><div class="byte-note">mod=11 reg=zmm0 r/m=zmm2</div></div><div style="display:flex;align-items:flex-start;padding-top:8px;margin-left:6px"><span class="byte-count" style="background:#f472b614;border-color:#f472b628;color:#f472b6;">6 byte(s)</span></div></div></div>
+<div class="example-block" id="example-evex-vaddps-xmm16-xmm17-rsi"><div class="example-head"><span class="example-mnemonic">VADDPS xmm16, xmm17, [rsi]</span><span class="example-asm">; EVEX extends to 32 SIMD regs</span></div><div class="byte-row"><div class="byte-card"><div class="byte-box" style="border-color:#f472b650;"><span class="byte-hex" style="color:#f472b6">62</span><div class="byte-field-label" style="background:#f472b615; border-top-color:#f472b622; color:#f472b6;">62h</div></div><div class="byte-note">EVEX marker</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#fb718550;"><span class="byte-hex" style="color:#fb7185">E1</span><div class="byte-field-label" style="background:#fb718515; border-top-color:#fb718522; color:#fb7185;">P0</div></div><div class="byte-note">mmm=001(0F map) · R̄X̄B̄=111 · R̄&#x27;=0 (reg≥16)</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#fb718550;"><span class="byte-hex" style="color:#fb7185">74</span><div class="byte-field-label" style="background:#fb718515; border-top-color:#fb718522; color:#fb7185;">P1</div></div><div class="byte-note">W=0 · vvvv→xmm17 · pp=00</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#fb718550;"><span class="byte-hex" style="color:#fb7185">00</span><div class="byte-field-label" style="background:#fb718515; border-top-color:#fb718522; color:#fb7185;">P2</div></div><div class="byte-note">z=0 · L&#x27;L=00(XMM) · b=0 · V&#x27; (vvvv[4]) · aaa=000</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#38bdf850;"><span class="byte-hex" style="color:#38bdf8">58</span><div class="byte-field-label" style="background:#38bdf815; border-top-color:#38bdf822; color:#38bdf8;">Opcode</div></div><div class="byte-note">VADDPS</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#a78bfa50;"><span class="byte-hex" style="color:#a78bfa">06</span><div class="byte-field-label" style="background:#a78bfa15; border-top-color:#a78bfa22; color:#a78bfa;">ModRM</div></div><div class="byte-note">mod=00 reg=xmm16 r/m=[rsi]</div></div><div style="display:flex;align-items:flex-start;padding-top:8px;margin-left:6px"><span class="byte-count" style="background:#f472b614;border-color:#f472b628;color:#f472b6;">6 byte(s)</span></div></div></div>
+<div class="example-block" id="example-evex-vaddps-zmm0-zmm1-zmm2-rn-sae"><div class="example-head"><span class="example-mnemonic">VADDPS zmm0, zmm1, zmm2, {rn-sae}</span><span class="example-asm">; embedded rounding (b=1 on reg src)</span></div><div class="byte-row"><div class="byte-card"><div class="byte-box" style="border-color:#f472b650;"><span class="byte-hex" style="color:#f472b6">62</span><div class="byte-field-label" style="background:#f472b615; border-top-color:#f472b622; color:#f472b6;">62h</div></div><div class="byte-note">EVEX marker</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#fb718550;"><span class="byte-hex" style="color:#fb7185">F1</span><div class="byte-field-label" style="background:#fb718515; border-top-color:#fb718522; color:#fb7185;">P0</div></div><div class="byte-note">R̄X̄B̄R̄&#x27;=1111 mmm=001</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#fb718550;"><span class="byte-hex" style="color:#fb7185">74</span><div class="byte-field-label" style="background:#fb718515; border-top-color:#fb718522; color:#fb7185;">P1</div></div><div class="byte-note">W=0 vvvv→zmm1 pp=00</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#fb718550;"><span class="byte-hex" style="color:#fb7185">18</span><div class="byte-field-label" style="background:#fb718515; border-top-color:#fb718522; color:#fb7185;">P2</div></div><div class="byte-note">z=0 L&#x27;L=10(ZMM) b=1(rn-sae) aaa=0</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#38bdf850;"><span class="byte-hex" style="color:#38bdf8">58</span><div class="byte-field-label" style="background:#38bdf815; border-top-color:#38bdf822; color:#38bdf8;">Opcode</div></div><div class="byte-note">VADDPS</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#a78bfa50;"><span class="byte-hex" style="color:#a78bfa">C2</span><div class="byte-field-label" style="background:#a78bfa15; border-top-color:#a78bfa22; color:#a78bfa;">ModRM</div></div><div class="byte-note">mod=11 reg=zmm0 r/m=zmm2</div></div><div style="display:flex;align-items:flex-start;padding-top:8px;margin-left:6px"><span class="byte-count" style="background:#f472b614;border-color:#f472b628;color:#f472b6;">6 byte(s)</span></div></div></div>
+    <details class="field-notes">
+      <summary>Field Notes</summary>
+      <div class="field-notes-list"><article class="field-note-item"><div class="field-note-title">62h · EVEX marker</div><div class="field-note-tip">EVEX marker 62h.
+In 64-bit mode BOUND is removed, freeing 62h.
+REX and VEX strictly forbidden.
+Total instruction length ≤ 15 bytes.</div></article>
+<article class="field-note-item"><div class="field-note-title">P0 · P1 · P2 · 3 payload bytes</div><div class="field-note-tip">P0: R̄ X̄ B̄ R̄&#x27; · 00 · mm
+• R̄X̄B̄ – inverted REX.RXB
+• R̄&#x27; – extends reg to 5 bits (32 regs)
+• mm: 01=map1, 02=map2, 03=map3, 05=MAP5, 06=MAP6
+
+P1: W · v̄v̄v̄v̄ · 1 · pp
+• W – operand size / element type
+• vvvv – inverted NDS register
+• pp – implied mandatory prefix
+
+P2: z · L&#x27; · L · b · V̄&#x27; · aaa
+• z – 0=merge masking, 1=zero masking
+• L&#x27;L – 00=XMM, 01=YMM, 10=ZMM
+• b – memory: broadcast; register: embedded rounding/SAE
+• V̄&#x27; – extends vvvv to 5 bits (32 NDS regs)
+• aaa – opmask: k0=no mask, k1–k7=apply mask</div></article>
+<article class="field-note-item"><div class="field-note-title">Opcode · maps 1–6</div><div class="field-note-tip">Opcode from selected map.
+MAP5/MAP6: AVX-512 FP16 (AVX10):
+VMOVSH, VADDPH, VCVTPH2PS…</div></article>
+<article class="field-note-item"><div class="field-note-title">ModRM · 1 byte</div><div class="field-note-tip">Always present.
+reg extended to 5 bits (R + R&#x27;) → 32 ZMM registers.</div></article>
+<article class="field-note-item"><div class="field-note-title">SIB/VSIB · 1 byte</div><div class="field-note-tip">SIB: standard base-index-scale.
+VSIB: index is XMM/YMM/ZMM — used by gather/scatter:
+  VGATHERDPS, VPGATHERDD, VSCATTERQPD…</div></article>
+<article class="field-note-item"><div class="field-note-title">Disp*N · 0/1*/4B</div><div class="field-note-tip">Compressed disp8*N:
+1-byte disp8 scaled by tuple size N.
+Range: [−128N, 127N] — compact for common strides.
+4-byte full displacement also available.</div></article>
+<article class="field-note-item"><div class="field-note-title">Imm8 · 0/1B</div><div class="field-note-tip">Optional imm8 for rounding, permute control,
+shift count, comparison predicate.</div></article></div>
+    </details>
+  </div>
+</details>
+
+<div class="group-divider" data-divider-group="xop"><div class="line" style="background:#fdba74"></div><span class="label" style="color:#fdba74">XOP</span><div class="line" style="background:#fdba74"></div></div>
+<details class="family row-wrap" id="family-xop" data-family-id="xop" data-group-id="xop" data-search="xop (8fh) amd only — maps 8/9/a — no intel support — deprecated zen 4+ 8fh r̄x̄b̄·mmm  ·  w·v̄v̄v̄v̄·l·pp opcode modrm sib disp imm vprotb xmm0, xmm1, xmm2 vpcmov xmm0, xmm1, xmm2, xmm3 ; xop (bulldozer-era amd), 3-operand form ; xop is4: imm8[7:4] selects 4th reg" >
+  <summary class="row-svg-wrap" aria-label="XOP (8Fh)">
+    <svg viewBox="0 0 1040 68" width="100%" aria-hidden="true" focusable="false"><line x1="474" y1="0" x2="474" y2="68" stroke="#0d1525" stroke-width="1"></line><line x1="584" y1="0" x2="584" y2="68" stroke="#0d1525" stroke-width="1"></line><line x1="682" y1="0" x2="682" y2="68" stroke="#0d1525" stroke-width="1"></line><line x1="780" y1="0" x2="780" y2="68" stroke="#0d1525" stroke-width="1"></line><line x1="884" y1="0" x2="884" y2="68" stroke="#0d1525" stroke-width="1"></line><rect x="8" y="2" width="1024" height="64" rx="6" fill="#130700"></rect><line x1="10" y1="34.0" x2="274.0" y2="34.0" stroke="#fdba74" stroke-width="1.2" opacity="0.28"></line><line x1="322.0" y1="34.0" x2="340.0" y2="34.0" stroke="#fdba74" stroke-width="1.2" opacity="0.28"></line><polygon points="340.0,30.5 347.0,34.0 340.0,37.5" fill="#fdba74" opacity="0.38"></polygon><line x1="474.0" y1="34.0" x2="496.0" y2="34.0" stroke="#fdba74" stroke-width="1.2" opacity="0.28"></line><polygon points="496.0,30.5 503.0,34.0 496.0,37.5" fill="#fdba74" opacity="0.38"></polygon><line x1="588.0" y1="34.0" x2="609.0" y2="34.0" stroke="#fdba74" stroke-width="1.2" opacity="0.28"></line><polygon points="609.0,30.5 616.0,34.0 609.0,37.5" fill="#fdba74" opacity="0.38"></polygon><line x1="695.0" y1="34.0" x2="710.0" y2="34.0" stroke="#fdba74" stroke-width="1.2" opacity="0.28"></line><polygon points="710.0,30.5 717.0,34.0 710.0,37.5" fill="#fdba74" opacity="0.38"></polygon><line x1="790.0" y1="34.0" x2="805.0" y2="34.0" stroke="#fdba74" stroke-width="1.2" opacity="0.28"></line><polygon points="805.0,30.5 812.0,34.0 805.0,37.5" fill="#fdba74" opacity="0.38"></polygon><line x1="891.0" y1="34.0" x2="907.0" y2="34.0" stroke="#fdba74" stroke-width="1.2" opacity="0.28"></line><polygon points="907.0,30.5 914.0,34.0 907.0,37.5" fill="#fdba74" opacity="0.38"></polygon><line x1="997.0" y1="34.0" x2="1024" y2="34.0" stroke="#fdba74" stroke-width="1.2" opacity="0.28"></line><polygon points="1018,30.5 1025,34.0 1018,37.5" fill="#fdba74" opacity="0.38"></polygon><g><title>XOP marker 8Fh. AMD-specific; no Intel support.
+Conflicts with POP in 32-bit mode — disambiguated by ModRM.reg ≠ 0.
+Deprecated: removed in AMD Zen 4 (2022).</title><rect x="279.0" y="15.0" width="42" height="38" rx="5" fill="#06090f" stroke="#fdba74" stroke-width="2" stroke-dasharray="none" opacity="1"></rect><text x="300" y="35.0" text-anchor="middle" fill="#fdba74" font-family="JetBrains Mono, Fira Code, monospace" font-size="10" font-weight="700" opacity="1">8Fh</text><text x="300" y="48.0" text-anchor="middle" fill="#fdba74" font-family="JetBrains Mono, Fira Code, monospace" font-size="7.5" opacity="0.38">XOP marker</text></g><g><title>Identical layout to VEX 3-byte:
+Byte 1: R̄X̄B̄ + map_select
+• map 01000 (8) – integer: VPMACSDD, VPCMOV, VPPERM…
+• map 01001 (9) – shifts/rotates: VPROTB, VPSHAB…
+• map 01010 (A) – bit ops: BEXTR, BLCFILL, BLSR…
+Map values &lt; 8 invalid in XOP (decode as VEX).
+
+Byte 2: W.vvvv.L.pp — same meaning as VEX.</title><rect x="347.0" y="15.0" width="126" height="38" rx="5" fill="#06090f" stroke="#fdba74" stroke-width="2" stroke-dasharray="none" opacity="1"></rect><text x="410" y="35.0" text-anchor="middle" fill="#fdba74" font-family="JetBrains Mono, Fira Code, monospace" font-size="8" font-weight="700" opacity="1">R̄X̄B̄·mmm  ·  W·v̄v̄v̄v̄·L·pp</text><text x="410" y="48.0" text-anchor="middle" fill="#fdba74" font-family="JetBrains Mono, Fira Code, monospace" font-size="7.5" opacity="0.38">2 payload bytes (same layout as VEX 3B)</text></g><g><title>Opcode from XOP map 8, 9, or A.</title><rect x="503.0" y="15.0" width="84" height="38" rx="5" fill="#06090f" stroke="#fdba74" stroke-width="2" stroke-dasharray="none" opacity="1"></rect><text x="545" y="35.0" text-anchor="middle" fill="#fdba74" font-family="JetBrains Mono, Fira Code, monospace" font-size="10" font-weight="700" opacity="1">Opcode</text><text x="545" y="48.0" text-anchor="middle" fill="#fdba74" font-family="JetBrains Mono, Fira Code, monospace" font-size="7.5" opacity="0.38">map 8/9/A</text></g><g><title>ModRM.</title><rect x="616.0" y="15.0" width="78" height="38" rx="5" fill="#06090f" stroke="#fdba74" stroke-width="1.5" stroke-dasharray="5 3" opacity="0.82"></rect><text x="655" y="35.0" text-anchor="middle" fill="#fdba74" font-family="JetBrains Mono, Fira Code, monospace" font-size="10" font-weight="700" opacity="0.85">ModRM</text><text x="655" y="48.0" text-anchor="middle" fill="#fdba74" font-family="JetBrains Mono, Fira Code, monospace" font-size="7.5" opacity="0.38">1 byte</text><text x="689.0" y="25.0" text-anchor="end" fill="#fdba74" font-family="JetBrains Mono, Fira Code, monospace" font-size="8" opacity="0.32">?</text></g><g><title>SIB for memory.</title><rect x="717.0" y="15.0" width="72" height="38" rx="5" fill="#06090f" stroke="#fdba74" stroke-width="1.5" stroke-dasharray="5 3" opacity="0.82"></rect><text x="753" y="35.0" text-anchor="middle" fill="#fdba74" font-family="JetBrains Mono, Fira Code, monospace" font-size="10" font-weight="700" opacity="0.85">SIB</text><text x="753" y="48.0" text-anchor="middle" fill="#fdba74" font-family="JetBrains Mono, Fira Code, monospace" font-size="7.5" opacity="0.38">1 byte</text><text x="784.0" y="25.0" text-anchor="end" fill="#fdba74" font-family="JetBrains Mono, Fira Code, monospace" font-size="8" opacity="0.32">?</text></g><g><title>Displacement.</title><rect x="812.0" y="15.0" width="78" height="38" rx="5" fill="#06090f" stroke="#fdba74" stroke-width="1.5" stroke-dasharray="5 3" opacity="0.82"></rect><text x="851" y="35.0" text-anchor="middle" fill="#fdba74" font-family="JetBrains Mono, Fira Code, monospace" font-size="10" font-weight="700" opacity="0.85">Disp</text><text x="851" y="48.0" text-anchor="middle" fill="#fdba74" font-family="JetBrains Mono, Fira Code, monospace" font-size="7.5" opacity="0.38">0/1/2/4B</text><text x="885.0" y="25.0" text-anchor="end" fill="#fdba74" font-family="JetBrains Mono, Fira Code, monospace" font-size="8" opacity="0.32">?</text></g><g><title>Optional imm8. Bits[7:4] may encode a 4th register (is4).</title><rect x="914.0" y="15.0" width="82" height="38" rx="5" fill="#06090f" stroke="#fdba74" stroke-width="1.5" stroke-dasharray="5 3" opacity="0.82"></rect><text x="955" y="35.0" text-anchor="middle" fill="#fdba74" font-family="JetBrains Mono, Fira Code, monospace" font-size="10" font-weight="700" opacity="0.85">Imm</text><text x="955" y="48.0" text-anchor="middle" fill="#fdba74" font-family="JetBrains Mono, Fira Code, monospace" font-size="7.5" opacity="0.38">0/1B</text><text x="991.0" y="25.0" text-anchor="end" fill="#fdba74" font-family="JetBrains Mono, Fira Code, monospace" font-size="8" opacity="0.32">?</text></g><text x="14" y="29.0" fill="#fdba74" font-family="JetBrains Mono, Fira Code, monospace" font-size="10.5" font-weight="700">XOP (8Fh)</text><text x="14" y="43.0" fill="#fdba74" font-family="JetBrains Mono, Fira Code, monospace" font-size="7.5" opacity="0.42">AMD only — maps 8/9/A — no Intel support — deprecated Zen 4+</text></svg>
+    <span class="row-chevron" aria-hidden="true">▼</span>
+  </summary>
+  <div class="examples" style="border: 1px solid #fdba7428; border-top: 2px solid #fdba74; background: #07090f;">
+    <div class="examples-header">
+      <span class="examples-title" style="color: #fdba74;">XOP (8Fh)</span>
+      <span class="example-count">2 example(s)</span>
+    </div>
+    <div class="example-block" id="example-xop-vprotb-xmm0-xmm1-xmm2"><div class="example-head"><span class="example-mnemonic">VPROTB xmm0, xmm1, xmm2</span><span class="example-asm">; XOP (Bulldozer-era AMD), 3-operand form</span></div><div class="byte-row"><div class="byte-card"><div class="byte-box" style="border-color:#fb718550;"><span class="byte-hex" style="color:#fb7185">8F</span><div class="byte-field-label" style="background:#fb718515; border-top-color:#fb718522; color:#fb7185;">8Fh</div></div><div class="byte-note">XOP marker</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#fb718550;"><span class="byte-hex" style="color:#fb7185">E9</span><div class="byte-field-label" style="background:#fb718515; border-top-color:#fb718522; color:#fb7185;">P1</div></div><div class="byte-note">R̄X̄B̄ + mmmmm=01001 (map9)</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#fb718550;"><span class="byte-hex" style="color:#fb7185">68</span><div class="byte-field-label" style="background:#fb718515; border-top-color:#fb718522; color:#fb7185;">P2</div></div><div class="byte-note">W=0 vvvv→xmm1 L=0 pp=00</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#38bdf850;"><span class="byte-hex" style="color:#38bdf8">90</span><div class="byte-field-label" style="background:#38bdf815; border-top-color:#38bdf822; color:#38bdf8;">Opcode</div></div><div class="byte-note">VPROTB</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#a78bfa50;"><span class="byte-hex" style="color:#a78bfa">C1</span><div class="byte-field-label" style="background:#a78bfa15; border-top-color:#a78bfa22; color:#a78bfa;">ModRM</div></div><div class="byte-note">mod=11 reg=xmm0 r/m=xmm2</div></div><div style="display:flex;align-items:flex-start;padding-top:8px;margin-left:6px"><span class="byte-count" style="background:#fdba7414;border-color:#fdba7428;color:#fdba74;">5 byte(s)</span></div></div></div>
+<div class="example-block" id="example-xop-vpcmov-xmm0-xmm1-xmm2-xmm3"><div class="example-head"><span class="example-mnemonic">VPCMOV xmm0, xmm1, xmm2, xmm3</span><span class="example-asm">; XOP is4: imm8[7:4] selects 4th reg</span></div><div class="byte-row"><div class="byte-card"><div class="byte-box" style="border-color:#fb718550;"><span class="byte-hex" style="color:#fb7185">8F</span><div class="byte-field-label" style="background:#fb718515; border-top-color:#fb718522; color:#fb7185;">8Fh</div></div><div class="byte-note">XOP marker</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#fb718550;"><span class="byte-hex" style="color:#fb7185">E8</span><div class="byte-field-label" style="background:#fb718515; border-top-color:#fb718522; color:#fb7185;">P1</div></div><div class="byte-note">R̄X̄B̄ + mmmmm=01000 (map8)</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#fb718550;"><span class="byte-hex" style="color:#fb7185">70</span><div class="byte-field-label" style="background:#fb718515; border-top-color:#fb718522; color:#fb7185;">P2</div></div><div class="byte-note">W=0 vvvv→xmm1 L=0 pp=00</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#38bdf850;"><span class="byte-hex" style="color:#38bdf8">A2</span><div class="byte-field-label" style="background:#38bdf815; border-top-color:#38bdf822; color:#38bdf8;">Opcode</div></div><div class="byte-note">VPCMOV (is4)</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#a78bfa50;"><span class="byte-hex" style="color:#a78bfa">C2</span><div class="byte-field-label" style="background:#a78bfa15; border-top-color:#a78bfa22; color:#a78bfa;">ModRM</div></div><div class="byte-note">mod=11 reg=xmm0 r/m=xmm2</div></div>
+<div class="byte-card"><div class="byte-box" style="border-color:#fbbf2450;"><span class="byte-hex" style="color:#fbbf24">30</span><div class="byte-field-label" style="background:#fbbf2415; border-top-color:#fbbf2422; color:#fbbf24;">imm8</div></div><div class="byte-note">imm[7:4]=3 → xmm3</div></div><div style="display:flex;align-items:flex-start;padding-top:8px;margin-left:6px"><span class="byte-count" style="background:#fdba7414;border-color:#fdba7428;color:#fdba74;">6 byte(s)</span></div></div></div>
+    <details class="field-notes">
+      <summary>Field Notes</summary>
+      <div class="field-notes-list"><article class="field-note-item"><div class="field-note-title">8Fh · XOP marker</div><div class="field-note-tip">XOP marker 8Fh. AMD-specific; no Intel support.
+Conflicts with POP in 32-bit mode — disambiguated by ModRM.reg ≠ 0.
+Deprecated: removed in AMD Zen 4 (2022).</div></article>
+<article class="field-note-item"><div class="field-note-title">R̄X̄B̄·mmm  ·  W·v̄v̄v̄v̄·L·pp · 2 payload bytes (same layout as VEX 3B)</div><div class="field-note-tip">Identical layout to VEX 3-byte:
+Byte 1: R̄X̄B̄ + map_select
+• map 01000 (8) – integer: VPMACSDD, VPCMOV, VPPERM…
+• map 01001 (9) – shifts/rotates: VPROTB, VPSHAB…
+• map 01010 (A) – bit ops: BEXTR, BLCFILL, BLSR…
+Map values &lt; 8 invalid in XOP (decode as VEX).
+
+Byte 2: W.vvvv.L.pp — same meaning as VEX.</div></article>
+<article class="field-note-item"><div class="field-note-title">Opcode · map 8/9/A</div><div class="field-note-tip">Opcode from XOP map 8, 9, or A.</div></article>
+<article class="field-note-item"><div class="field-note-title">ModRM · 1 byte</div><div class="field-note-tip">ModRM.</div></article>
+<article class="field-note-item"><div class="field-note-title">SIB · 1 byte</div><div class="field-note-tip">SIB for memory.</div></article>
+<article class="field-note-item"><div class="field-note-title">Disp · 0/1/2/4B</div><div class="field-note-tip">Displacement.</div></article>
+<article class="field-note-item"><div class="field-note-title">Imm · 0/1B</div><div class="field-note-tip">Optional imm8. Bits[7:4] may encode a 4th register (is4).</div></article></div>
+    </details>
+  </div>
+</details>
+
+
+  </div>
+</main>
+<div id="footer">
+  <div class="footer-note">Tooltip: hover to preview · click a field to pin · ESC or × to unpin</div>
+<div class="footer-note">Max length: 15 bytes</div>
+<div class="footer-note">REX / legacy prefixes forbidden with VEX · EVEX · XOP</div>
+<div class="footer-note">XOP removed on AMD Zen and later (Bulldozer-era only)</div>
+<div class="footer-note">EVEX MAP5/MAP6: used by many AVX-512 FP16 encodings (and AVX10.x FP16)</div>
+<details class="footer-validate"><summary>Validation gate (recommended for maintaining byte-accurate examples)</summary><pre># Minimal round-trip check idea (Linux/macOS)
+# 1) Assemble the examples
+# 2) objdump the bytes and compare against the presentation data
+
+cat &gt; validate.s &lt;&lt;&#x27;EOF&#x27;
+.intel_syntax noprefix
+.text
+.globl _start
+_start:
+  # add one line per example you want to validate
+  vaddps xmm16, xmm17, XMMWORD PTR [rsi]
+  vprotb xmm0, xmm1, xmm2
+EOF
+
+as --64 validate.s -o validate.o
+objdump -d validate.o</pre></details>
+</div>
+
+</body>
+</html>
+
