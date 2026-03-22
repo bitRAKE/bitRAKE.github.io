@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>All Objects — Lineweaver &amp; Patel Interactive Explorer</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,700;1,400&display=swap');
+
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #0a0e1a;
+    --bg-panel: rgba(12, 17, 32, 0.94);
+    --border: rgba(100, 140, 200, 0.15);
+    --text: #c0cee0;
+    --text-dim: #506070;
+    --text-bright: #e8f0ff;
+    --accent: #4fa8d6;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    overflow: hidden;
+    height: 100vh; width: 100vw;
+    cursor: crosshair;
+  }
+
+  canvas { display: block; position: absolute; top: 0; left: 0; }
+
+  /* Top bar */
+  #topbar {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 10;
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 14px;
+    background: var(--bg-panel);
+    border-bottom: 1px solid var(--border);
+    backdrop-filter: blur(12px);
+  }
+  #topbar h1 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px; font-weight: 500;
+    color: var(--text-bright);
+    white-space: nowrap; letter-spacing: 0.5px;
+  }
+  .sep { width: 1px; height: 20px; background: var(--border); flex-shrink: 0; }
+
+  #search-box {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid var(--border); border-radius: 4px;
+    padding: 4px 10px;
+    color: var(--text-bright);
+    font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    width: 180px; outline: none;
+    transition: border-color 0.2s;
+  }
+  #search-box:focus { border-color: var(--accent); }
+  #search-box::placeholder { color: var(--text-dim); }
+
+  .cat-filters { display: flex; gap: 5px; flex-wrap: wrap; align-items: center; }
+  .cat-btn {
+    display: flex; align-items: center; gap: 4px;
+    padding: 2px 8px; border-radius: 3px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif; font-size: 11px;
+    cursor: pointer; transition: all 0.15s; white-space: nowrap;
+  }
+  .cat-btn .dot { width: 6px; height: 6px; border-radius: 50%; }
+  .cat-btn.active { background: rgba(255,255,255,0.08); color: var(--text-bright); }
+  .cat-btn:not(.active) { opacity: 0.35; }
+  .cat-btn:hover { border-color: rgba(255,255,255,0.25); }
+
+  .icon-btn {
+    width: 28px; height: 28px;
+    border-radius: 4px; border: 1px solid var(--border);
+    background: transparent; color: var(--text);
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    font-size: 14px; transition: all 0.15s; flex-shrink: 0;
+  }
+  .icon-btn:hover { background: rgba(255,255,255,0.08); color: var(--text-bright); }
+  .icon-btn.active { background: rgba(79,168,214,0.2); border-color: var(--accent); color: var(--accent); }
+
+  /* Tooltip */
+  #tooltip {
+    position: fixed; z-index: 30; pointer-events: none;
+    background: var(--bg-panel);
+    border: 1px solid var(--border); border-radius: 6px;
+    padding: 10px 14px; max-width: 320px;
+    font-size: 12px; line-height: 1.5;
+    backdrop-filter: blur(16px);
+    opacity: 0; transition: opacity 0.12s;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.5);
+  }
+  #tooltip.visible { opacity: 1; }
+  .tt-name { font-family: 'JetBrains Mono', monospace; font-weight: 600; font-size: 13px; color: var(--text-bright); margin-bottom: 4px; }
+  .tt-cat { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
+  .tt-row { display: flex; gap: 14px; }
+  .tt-label { color: var(--text-dim); min-width: 48px; }
+  .tt-val { color: var(--text-bright); font-family: 'JetBrains Mono', monospace; font-size: 11px; }
+  .tt-desc { margin-top: 6px; color: var(--text); font-size: 11px; line-height: 1.45; }
+
+  /* Search dropdown */
+  #search-results {
+    position: fixed; top: 44px; left: 130px; z-index: 15;
+    background: var(--bg-panel);
+    border: 1px solid var(--border); border-radius: 4px;
+    max-height: 200px; overflow-y: auto;
+    display: none; min-width: 240px;
+    backdrop-filter: blur(12px);
+  }
+  .sr-item {
+    padding: 5px 12px; font-size: 12px; cursor: pointer;
+    display: flex; align-items: center; gap: 8px;
+    transition: background 0.1s;
+  }
+  .sr-item:hover { background: rgba(255,255,255,0.06); }
+  .sr-item .dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+
+  /* Bottom bar */
+  #info-hint {
+    position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%); z-index: 10;
+    font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--text-dim);
+    background: var(--bg-panel); padding: 5px 14px; border-radius: 4px;
+    border: 1px solid var(--border); backdrop-filter: blur(8px); white-space: nowrap;
+  }
+  #coords {
+    position: fixed; bottom: 12px; right: 14px; z-index: 10;
+    font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--text-dim);
+    background: var(--bg-panel); padding: 4px 10px; border-radius: 4px;
+    border: 1px solid var(--border);
+  }
+
+  /* Info Panel */
+  #info-panel {
+    position: fixed; top: 44px; right: 0; bottom: 0; z-index: 20;
+    width: 380px; max-width: 90vw;
+    background: var(--bg-panel);
+    border-left: 1px solid var(--border);
+    backdrop-filter: blur(16px);
+    transform: translateX(100%);
+    transition: transform 0.25s ease;
+    overflow-y: auto;
+    padding: 24px 22px 40px;
+  }
+  #info-panel.open { transform: translateX(0); }
+  #info-panel h2 { font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 600; color: var(--text-bright); margin-bottom: 14px; letter-spacing: 0.5px; }
+  #info-panel h3 { font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 500; color: var(--accent); margin: 18px 0 8px; text-transform: uppercase; letter-spacing: 1px; }
+  #info-panel p, #info-panel li { font-size: 13px; line-height: 1.65; color: var(--text); margin-bottom: 8px; }
+  #info-panel a { color: var(--accent); text-decoration: none; border-bottom: 1px solid rgba(79,168,214,0.3); transition: border-color 0.2s; }
+  #info-panel a:hover { border-color: var(--accent); }
+  #info-panel ul { list-style: none; padding: 0; }
+  #info-panel li::before { content: "\2192\00a0"; color: var(--text-dim); }
+  .keybind { display: inline-block; font-family: 'JetBrains Mono', monospace; font-size: 10px; background: rgba(255,255,255,0.08); border: 1px solid var(--border); border-radius: 3px; padding: 1px 5px; color: var(--text-bright); }
+  .info-sep { height: 1px; background: var(--border); margin: 18px 0; }
+
+  /* Tour Panel */
+  #tour-panel {
+    position: fixed; bottom: 46px; left: 14px; z-index: 20;
+    width: 400px; max-width: calc(100vw - 28px);
+    background: var(--bg-panel);
+    border: 1px solid var(--border); border-radius: 8px;
+    backdrop-filter: blur(16px);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    display: none; overflow: hidden;
+  }
+  #tour-panel.open { display: block; }
+  .tour-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border-bottom: 1px solid var(--border); }
+  .tour-header span { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--accent); text-transform: uppercase; letter-spacing: 1px; }
+  .tour-close { background: none; border: none; color: var(--text-dim); cursor: pointer; font-size: 16px; line-height: 1; }
+  .tour-close:hover { color: var(--text-bright); }
+  .tour-body { padding: 14px 16px 16px; max-height: 50vh; overflow-y: auto; }
+  .tour-body h3 { font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 600; color: var(--text-bright); margin-bottom: 8px; }
+  .tour-body p { font-size: 13px; line-height: 1.6; color: var(--text); margin-bottom: 10px; }
+  .tour-body a { color: var(--accent); cursor: pointer; text-decoration: none; border-bottom: 1px dotted rgba(79,168,214,0.4); }
+  .tour-body a:hover { border-bottom-style: solid; }
+  .tour-nav { display: flex; align-items: center; justify-content: space-between; padding: 8px 14px; border-top: 1px solid var(--border); }
+  .tour-btn { background: none; border: 1px solid var(--border); border-radius: 4px; padding: 4px 14px; color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 12px; cursor: pointer; transition: all 0.15s; }
+  .tour-btn:hover { background: rgba(255,255,255,0.06); color: var(--text-bright); }
+  .tour-btn:disabled { opacity: 0.3; cursor: default; }
+  .tour-counter { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--text-dim); }
+</style>
+</head>
+<body>
+
+<div id="topbar">
+  <h1>ALL OBJECTS</h1>
+  <div class="sep"></div>
+  <input id="search-box" type="text" placeholder="Search objects..." autocomplete="off" spellcheck="false">
+  <div class="sep"></div>
+  <div class="cat-filters" id="cat-filters"></div>
+  <div style="flex:1"></div>
+  <button class="icon-btn" id="btn-tour" title="Guided Tour (T)">&#x1F9ED;</button>
+  <button class="icon-btn" id="btn-reset" title="Reset View (R)">&#x27F2;</button>
+  <button class="icon-btn" id="btn-info" title="Sources &amp; Info (I)">&#x24D8;</button>
+</div>
+
+<div id="search-results"></div>
+<canvas id="canvas"></canvas>
+
+<div id="tooltip">
+  <div class="tt-name"></div>
+  <div class="tt-cat"></div>
+  <div class="tt-row"><span class="tt-label">Mass</span><span class="tt-val" id="tt-mass"></span></div>
+  <div class="tt-row"><span class="tt-label">Radius</span><span class="tt-val" id="tt-radius"></span></div>
+  <div class="tt-row"><span class="tt-label">Density</span><span class="tt-val" id="tt-density"></span></div>
+  <div class="tt-desc"></div>
+</div>
+
+<div id="info-hint">Scroll to zoom &middot; Drag to pan &middot; Hover for details &middot; R reset &middot; T tour &middot; I info</div>
+<div id="coords"></div>
+
+<div id="info-panel">
+  <h2>About This Diagram</h2>
+  <p>An interactive exploration of the mass-radius diagram from <em>"All objects and some questions"</em> by Charles H. Lineweaver and Vihan M. Patel (2023), Research School of Astronomy &amp; Astrophysics, Australian National University.</p>
+  <p>The original plot places every known composite object in the Universe on a log-log graph of mass vs. radius, revealing the forbidden regions imposed by general relativity (Schwarzschild black holes) and quantum mechanics (Compton wavelength).</p>
+  <h3>Source Material</h3>
+  <ul>
+    <li><a href="https://pubs.aip.org/aapt/ajp/article/91/10/819/2911822/All-objects-and-some-questions" target="_blank" rel="noopener">Original paper &mdash; Am. J. Phys. 91, 819-825 (2023)</a></li>
+    <li><a href="https://www.universetoday.com/articles/everything-in-the-universe-fits-in-this-one-graph-even-the-impossible-stuff" target="_blank" rel="noopener">Universe Today &mdash; overview by Nancy Atkinson</a></li>
+    <li><a href="https://phys.org/news/2023-10-view-universe.html" target="_blank" rel="noopener">Phys.org &mdash; "A new view of all objects in the universe"</a></li>
+    <li><a href="https://www.mso.anu.edu.au/~charley/" target="_blank" rel="noopener">Prof. Lineweaver's page at ANU</a></li>
+  </ul>
+  <h3>Key Physics</h3>
+  <p><strong>Black hole line</strong> &mdash; Schwarzschild radius: r<sub>s</sub> = 2Gm/c&sup2;. Objects cannot be smaller than their Schwarzschild radius; the region to the left is "forbidden by gravity."</p>
+  <p><strong>Compton line</strong> &mdash; Compton wavelength: &lambda;<sub>c</sub> = &#x210F;/mc. Below this scale, quantum uncertainty prevents localization of a single particle.</p>
+  <p><strong>Instanton</strong> &mdash; Where the two boundaries cross: a Planck-mass black hole. The smallest possible object.</p>
+  <p><strong>Isodensity lines</strong> &mdash; Diagonal lines (slope 3) connecting objects of equal density, labeled by the epoch when the Universe had that density.</p>
+  <p><strong>Density bands</strong> &mdash; Background shading shows density regimes from Planck-era through present-day matter density.</p>
+  <h3>Controls</h3>
+  <p>
+    <span class="keybind">Scroll</span> Zoom &nbsp;
+    <span class="keybind">Drag</span> Pan &nbsp;
+    <span class="keybind">R</span> Reset &nbsp;
+    <span class="keybind">T</span> Tour &nbsp;
+    <span class="keybind">I</span> This panel &nbsp;
+    <span class="keybind">Esc</span> Close panels
+  </p>
+  <div class="info-sep"></div>
+  <p style="font-size:11px;color:var(--text-dim);">Interactive visualization inspired by the original figure. Object data approximate, from the paper's supplementary material and standard references. DOI: 10.1119/5.0150209</p>
+</div>
+
+<div id="tour-panel">
+  <div class="tour-header">
+    <span>Guided Tour</span>
+    <button class="tour-close" id="tour-close">&#x2715;</button>
+  </div>
+  <div class="tour-body" id="tour-body"></div>
+  <div class="tour-nav">
+    <button class="tour-btn" id="tour-prev">&larr; Prev</button>
+    <span class="tour-counter" id="tour-counter"></span>
+    <button class="tour-btn" id="tour-next">Next &rarr;</button>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+// === PHYSICS CONSTANTS (SI) ===
+const G = 6.67430e-11, c = 2.99792e8, hbar = 1.05457e-34;
+const LOG10_RS_COEFF = Math.log10(2*G/(c*c));
+const LOG10_LC_COEFF = Math.log10(hbar/c);
+function bhRadius(logM) { return LOG10_RS_COEFF + logM; }
+function comptonRadius(logM) { return LOG10_LC_COEFF - logM; }
+const PLANCK_MASS_LOG = Math.log10(2.17644e-8);
+const PLANCK_LEN_LOG = Math.log10(1.61626e-35);
+function isodensityIntercept(rho) { return Math.log10(4*Math.PI/3*rho); }
+
+// === EPOCH BANDS (between isodensity lines) ===
+const EPOCH_BANDS = [
+  { rhoHi: 5.16e96, rhoLo: 3.0e80, color: "rgba(180,60,100,0.06)", label: "" },
+  { rhoHi: 3.0e80, rhoLo: 2.0e25, color: "rgba(140,80,120,0.05)", label: "" },
+  { rhoHi: 2.0e25, rhoLo: 2.3e17, color: "rgba(180,80,80,0.055)", label: "QGP" },
+  { rhoHi: 2.3e17, rhoLo: 1.0e3, color: "rgba(120,100,160,0.05)", label: "BBN" },
+  { rhoHi: 1.0e3, rhoLo: 9.47e-27, color: "rgba(60,90,140,0.06)", label: "" },
+  { rhoHi: 9.47e-27, rhoLo: 1.0e-30, color: "rgba(40,50,70,0.06)", label: "" },
+];
+
+const ISODENSITY_LINES = [
+  { rho: 5.16e96, label: "Planck ~10\u207B\u2074\u00B3 s", dash: [2,5] },
+  { rho: 3.0e80, label: "GUT ~10\u207B\u00B3\u00B2 s", dash: [2,5] },
+  { rho: 2.0e25, label: "QGP ~10\u207B\u2076 s", dash: [3,5] },
+  { rho: 2.3e17, label: "nuclear ~10\u207B\u2076 s", dash: [5,4] },
+  { rho: 1.0e3, label: "atomic/BBN ~10\u00B3 s", dash: [5,4] },
+  { rho: 9.47e-27, label: "now ~10\u00B9\u2077 s", dash: [5,4] },
+  { rho: 1.0e-30, label: "", dash: [2,6] },
+];
+
+// === CATEGORIES ===
+const CATEGORIES = {
+  particle: { label: "Particles", color: "#e06cff" },
+  life: { label: "Life", color: "#5deb5d" },
+  rock: { label: "Rocks", color: "#c49a6c" },
+  planet: { label: "Planets", color: "#4a9eff" },
+  star: { label: "Stars", color: "#ffd644" },
+  blackhole: { label: "Black Holes", color: "#ff4444" },
+  galaxy: { label: "Galaxies+", color: "#ff8844" },
+  cosmic: { label: "Cosmic", color: "#ffffff" },
+  boundary: { label: "Boundaries", color: "#999999" },
+};
+
+// === OBJECT DATA [name, log10_mass_kg, log10_radius_m, category, LOD, description] ===
+// LOD: 0=always, 1=medium zoom, 2=detail zoom. Extend by appending rows.
+const OBJECTS = [
+  // Fundamental particles
+  ["Top quark (t)", -24.51, -17.94, "particle", 1, "Heaviest quark, 173 GeV/c\u00B2. Plotted at Compton wavelength."],
+  ["Higgs boson (H\u2070)", -24.65, -17.80, "particle", 1, "125 GeV/c\u00B2. Discovered 2012 at CERN."],
+  ["W boson", -24.85, -17.60, "particle", 2, "80.4 GeV/c\u00B2. Weak-force mediator."],
+  ["Z boson", -24.79, -17.66, "particle", 2, "91.2 GeV/c\u00B2. Weak-force mediator."],
+  ["Proton (p)", -26.78, -15.06, "particle", 0, "938 MeV/c\u00B2, r \u2248 0.87 fm. Nuclear density line."],
+  ["Neutron (n)", -26.77, -15.05, "particle", 2, "940 MeV/c\u00B2. Slightly heavier than proton."],
+  ["Pion (\u03C0\u00B1)", -27.86, -16.20, "particle", 2, "140 MeV/c\u00B2. Lightest meson; mediates nuclear force."],
+  ["Muon (\u03BC)", -28.97, -13.48, "particle", 2, "106 MeV/c\u00B2. Heavy cousin of electron."],
+  ["Electron (e)", -30.04, -12.41, "particle", 0, "0.511 MeV/c\u00B2. Compton wavelength \u03BB_c \u2248 3.86\u00D710\u207B\u00B9\u00B3 m."],
+  ["Neutrino (\u03BD)", -37.05, -5.93, "particle", 1, "~0.05 eV/c\u00B2. Enormous Compton wavelength ~1 \u03BCm."],
+  ["Hydrogen atom", -26.78, -10.28, "particle", 1, "Proton mass but Bohr radius 5.3\u00D710\u207B\u00B9\u00B9 m. Atomic density."],
+  ["Uranium atom", -25.60, -9.82, "particle", 2, "238 amu. Atomic radius \u2248 1.5\u00D710\u207B\u00B9\u2070 m."],
+  // Photons (Compton line)
+  ["Gamma ray (1 MeV)", -29.25, -13.20, "particle", 2, "High-energy photon at angular wavelength."],
+  ["X-ray (1 keV)", -32.25, -10.20, "particle", 2, "Medical/astronomical X-ray photon."],
+  ["Visible light", -35.36, -7.10, "particle", 2, "Green ~500 nm. Effective mass via E = hf."],
+  ["Infrared (10 \u03BCm)", -37.86, -4.60, "particle", 2, "Thermal infrared photon."],
+  ["Microwave (CMB)", -39.46, -2.99, "particle", 2, "CMB peak ~1.1 mm. T \u2248 2.725 K."],
+  ["Radio wave (1 m)", -41.82, -0.62, "particle", 2, "Long-wavelength photon."],
+  // Life
+  ["Prion", -21.00, -8.10, "life", 2, "Misfolded protein ~10 nm, ~10\u207B\u00B2\u00B9 kg."],
+  ["Virus", -20.00, -7.15, "life", 1, "~100 nm diameter, ~10\u207B\u00B2\u2070 kg. Near atomic density."],
+  ["Bacterium", -15.00, -5.70, "life", 1, "E. coli-sized. ~1 pg, radius ~2 \u03BCm."],
+  ["Red blood cell", -13.10, -5.40, "life", 2, "~8 \u03BCm diameter, ~30 pg."],
+  ["Tardigrade", -8.00, -4.00, "life", 2, "Water bear. ~1 \u03BCg, ~0.1 mm. Extreme survivor."],
+  ["Ant", -5.70, -3.40, "life", 2, "~1-2 mg, body ~0.4 mm radius."],
+  ["Flea", -6.00, -3.00, "life", 1, "~1 \u03BCg, ~1 mm. Classic scale reference."],
+  ["Mouse", -1.60, -1.40, "life", 2, "~25 g, ~4 cm effective radius."],
+  ["Human", 1.85, -0.30, "life", 0, "70 kg, ~50 cm radius (spherical cow approximation)."],
+  ["Elephant", 3.60, 0.40, "life", 2, "~4000 kg, ~1.5 m effective radius."],
+  ["Blue whale", 5.00, 0.85, "life", 1, "10\u2075 kg, r ~7 m. Largest animal. Atomic density."],
+  ["Giant sequoia", 5.78, 0.78, "life", 2, "~600 tonnes. Most massive living organisms."],
+  // Rocks & Asteroids
+  ["Large boulder", 4.00, -0.30, "rock", 2, "~10 tonnes, ~0.5 m."],
+  ["Great Pyramid", 9.78, 1.66, "rock", 2, "~6\u00D710\u2079 kg. Effective radius ~46 m."],
+  ["Comet nucleus", 13.00, 3.70, "rock", 2, "~5 km radius, ~10\u00B9\u00B3 kg. Dirty snowball."],
+  ["Phobos", 15.93, 4.04, "rock", 2, "Mars moon. ~11 km, 1.07\u00D710\u00B9\u2076 kg."],
+  ["Small asteroid", 10.00, 2.00, "rock", 2, "City-killer impactor class (~100 m)."],
+  ["Vesta", 20.34, 5.42, "rock", 2, "Second-largest asteroid. r \u2248 263 km."],
+  ["Ceres", 20.87, 5.67, "rock", 1, "Dwarf planet. r \u2248 470 km."],
+  // Planets & Moons
+  ["Pluto", 22.09, 6.07, "planet", 2, "Dwarf planet. r \u2248 1188 km."],
+  ["Moon", 22.87, 6.24, "planet", 1, "7.35\u00D710\u00B2\u00B2 kg, r \u2248 1737 km."],
+  ["Mars", 23.81, 6.53, "planet", 2, "r \u2248 3390 km. The Red Planet."],
+  ["Venus", 24.69, 6.78, "planet", 2, "r \u2248 6052 km. Earth's twin in size."],
+  ["Earth", 24.78, 6.80, "planet", 0, "5.97\u00D710\u00B2\u2074 kg, r \u2248 6371 km."],
+  ["Neptune", 25.96, 7.39, "planet", 2, "Ice giant. r \u2248 24,622 km."],
+  ["Saturn", 26.75, 7.77, "planet", 1, "Ringed gas giant. r \u2248 58,232 km."],
+  ["Jupiter", 27.28, 7.85, "planet", 0, "1.9\u00D710\u00B2\u2077 kg, r \u2248 69,911 km."],
+  ["13 M\u2C7C planet", 28.41, 7.90, "planet", 2, "Heaviest planet / lightest brown dwarf boundary."],
+  // Stars
+  ["Brown dwarf", 29.00, 7.85, "star", 1, "Failed star. ~0.05 M\u2609, Jupiter-sized."],
+  ["Proxima Centauri", 29.39, 8.04, "star", 2, "Nearest star. Red dwarf, 0.12 M\u2609."],
+  ["Red dwarf (0.2 M\u2609)", 29.58, 8.15, "star", 2, "Most common star type."],
+  ["Sun", 30.30, 8.84, "star", 0, "G-type main sequence. 2\u00D710\u00B3\u2070 kg, r = 6.96\u00D710\u2078 m."],
+  ["Sirius A", 30.52, 8.97, "star", 2, "A-type, ~2 M\u2609. Brightest star in night sky."],
+  ["Rigel", 30.52, 10.00, "star", 2, "Blue supergiant. ~21 M\u2609, ~70 R\u2609."],
+  ["Betelgeuse", 30.54, 11.00, "star", 1, "Red supergiant. ~1000 R\u2609, only ~17 M\u2609."],
+  ["R136a1", 31.70, 9.60, "star", 2, "~250 M\u2609. Among the most massive known."],
+  ["White dwarf", 30.08, 6.78, "star", 0, "~0.6 M\u2609, Earth-sized. Electron degeneracy."],
+  ["Chandrasekhar WD", 30.45, 6.50, "star", 2, "1.4 M\u2609 limit. Maximum white dwarf mass."],
+  ["Neutron star", 30.45, 4.00, "star", 0, "1.4 M\u2609 in ~10 km. Nuclear density."],
+  // Black Holes
+  ["Stellar BH (10 M\u2609)", 31.30, 4.47, "blackhole", 1, "Formed from massive star collapse. r_s \u2248 30 km."],
+  ["Stellar BH (50 M\u2609)", 32.00, 5.17, "blackhole", 2, "Detected via gravitational waves."],
+  ["Intermediate BH", 35.00, 8.17, "blackhole", 2, "~10\u2074 M\u2609. Possibly in globular clusters."],
+  ["Sgr A*", 36.90, 10.07, "blackhole", 0, "Milky Way center. 4\u00D710\u2076 M\u2609. Imaged by EHT."],
+  ["M87*", 39.79, 12.96, "blackhole", 1, "First BH imaged (EHT 2019). 6.5\u00D710\u2079 M\u2609."],
+  ["TON 618", 40.82, 13.99, "blackhole", 1, "Ultramassive, 6.6\u00D710\u00B9\u2070 M\u2609."],
+  ["Phoenix A", 41.08, 14.25, "blackhole", 2, "~10\u00B9\u00B9 M\u2609. Among the most massive."],
+  ["Primordial BH (surviving)", 11.70, -15.13, "blackhole", 2, "Smallest PBH surviving Hawking evaporation."],
+  // Galaxies & Large-Scale Structure
+  ["Dwarf galaxy", 39.70, 19.90, "galaxy", 2, "~10\u00B9\u2070 M\u2609, r ~30 kpc."],
+  ["Milky Way", 41.85, 20.70, "galaxy", 0, "~1.5\u00D710\u00B9\u00B2 M\u2609, r \u2248 50 kpc."],
+  ["Andromeda (M31)", 42.08, 20.84, "galaxy", 2, "Nearest large spiral. ~2 trillion M\u2609."],
+  ["Giant elliptical", 43.18, 21.30, "galaxy", 2, "IC 1101 class. ~10\u00B9\u2074 M\u2609."],
+  ["Galaxy cluster", 44.90, 22.90, "galaxy", 1, "Virgo/Coma class. r ~5 Mpc."],
+  ["Supercluster", 46.78, 23.70, "galaxy", 2, "Laniakea class. r ~80 Mpc."],
+  ["Giant void", 44.70, 24.40, "galaxy", 2, "Bootes void class. r ~125 Mpc."],
+  // Cosmic / Boundary
+  ["Observable Universe", 53.43, 26.11, "cosmic", 0, "Hubble radius \u2248 1.3\u00D710\u00B2\u2076 m. Sits ON the black hole line."],
+  ["Instanton", PLANCK_MASS_LOG, PLANCK_LEN_LOG, "boundary", 0, "Planck-mass BH. Smallest possible object. BH and Compton lines meet here."],
+];
+
+// === TOUR STOPS ===
+const PLM = PLANCK_MASS_LOG, PLL = PLANCK_LEN_LOG;
+const TOUR_STOPS = [
+  { title: "The Full Picture",
+    body: '<p>This graph plots every known type of object in the Universe on two axes: <strong>radius</strong> (horizontal) and <strong>mass</strong> (vertical), both logarithmic.</p><p>From the <a onclick="tourNav('+PLL+','+PLM+',30)">Planck-scale instanton</a> at 10\u207B\u00B3\u2075 m to the <a onclick="tourNav(26.11,53.43,30)">Observable Universe</a> at 10\u00B2\u2076 m \u2014 roughly 61 orders of magnitude on each axis.</p><p>The diagonal dashed lines are <em>isodensity contours</em>. The colored bands show the density the entire Universe had at different epochs.</p>',
+    cx: -4, cy: 6, zoom: 0 },
+  { title: "The Atomic Density Strip",
+    body: '<p>A remarkable fact: nearly everything we interact with lies along a single density line \u2014 about 1000 kg/m\u00B3 (the density of water).</p><p><a onclick="tourNav(-7.15,-20,22)">Viruses</a>, <a onclick="tourNav(-5.7,-15,22)">bacteria</a>, <a onclick="tourNav(-0.30,1.85,22)">humans</a>, <a onclick="tourNav(0.85,5,22)">whales</a>, <a onclick="tourNav(6.80,24.78,22)">Earth</a>, and the <a onclick="tourNav(8.84,30.30,22)">Sun</a> all cluster near this line.</p><p>The Universe itself had this density at the end of Big Bang Nucleosynthesis, ~1000 seconds after the Big Bang.</p>',
+    cx: 0, cy: 5, zoom: 10 },
+  { title: "Black Holes & the Forbidden Zone",
+    body: '<p>The red diagonal is the <strong>Schwarzschild radius</strong>: r = 2Gm/c\u00B2. Every black hole sits exactly on this line, from <a onclick="tourNav(4.47,31.30,18)">stellar-mass</a> to <a onclick="tourNav(13.99,40.82,18)">ultramassive</a>.</p><p>Left of this line is <em>"forbidden by gravity"</em> \u2014 no object can be smaller than its Schwarzschild radius.</p><p>Counter-intuitively, bigger BHs are <em>less dense</em>. <a onclick="tourNav(10.07,36.90,22)">Sgr A*</a> (4M M\u2609) has roughly the density of water. The <a onclick="tourNav(26.11,53.43,22)">Observable Universe</a> sits on this line too.</p>',
+    cx: 8, cy: 32, zoom: 8 },
+  { title: "Quantum Uncertainty & the Compton Line",
+    body: '<p>The blue diagonal (slope \u22121) is the <strong>Compton wavelength</strong>: \u03BB = \u210F/mc. Below this scale, pair-production prevents localizing a single particle.</p><p>Fundamental particles sit on this line: <a onclick="tourNav(-17.94,-24.51,30)">top quark</a> (heaviest), <a onclick="tourNav(-12.41,-30.04,30)">electron</a>, and <a onclick="tourNav(-5.93,-37.05,30)">neutrino</a> (lightest, largest wavelength).</p><p>The electromagnetic spectrum from <a onclick="tourNav(-13.20,-29.25,20)">gamma rays</a> to <a onclick="tourNav(-0.62,-41.82,20)">radio waves</a> also falls along this line.</p>',
+    cx: -14, cy: -25, zoom: 8 },
+  { title: "The Instanton \u2014 Where Everything Meets",
+    body: '<p>The BH line (slope +1) and Compton line (slope \u22121) cross at one point: the <a onclick="tourNav('+PLL+','+PLM+',40)">instanton</a>.</p><p>This is a Planck-mass black hole whose Schwarzschild radius equals its Compton wavelength: m \u2248 2.18\u00D710\u207B\u2078 kg, r \u2248 1.62\u00D710\u207B\u00B3\u2075 m.</p><p>It is the <em>smallest possible object</em>. Below it lies the doubly-forbidden "QG" region. The paper suggests this instanton may represent the initial condition of the Universe.</p>',
+    cx: PLL, cy: PLM, zoom: 25 },
+  { title: "Stellar Evolution: A One-Way Street Down",
+    body: '<p>A <a onclick="tourNav(8.84,30.30,25)">main-sequence star</a> like our Sun burns fuel for billions of years.</p><p>When fuel runs out, it collapses into a <a onclick="tourNav(6.78,30.08,25)">white dwarf</a> \u2014 Earth-sized but Sun-mass, held up by electron degeneracy pressure.</p><p>Past the Chandrasekhar limit (1.4 M\u2609): electrons forced into protons \u2192 <a onclick="tourNav(4.00,30.45,25)">neutron star</a> at nuclear density.</p><p>Past ~3 M\u2609, even neutron degeneracy fails \u2192 <a onclick="tourNav(4.47,31.30,25)">stellar black hole</a>. Each step moves left on the plot: smaller, denser.</p>',
+    cx: 7, cy: 30.5, zoom: 18 },
+  { title: "Is the Universe a Black Hole?",
+    body: '<p>The <a onclick="tourNav(26.11,53.43,20)">Observable Universe</a> sits right on the black hole line. Its mass and Hubble radius satisfy r = 2Gm/c\u00B2 almost exactly.</p><p>But as Lineweaver explains, this depends on assuming empty space outside. If the Universe continues at critical density beyond the Hubble radius \u2014 as we believe \u2014 the Friedmann metric applies, and no black hole interpretation holds.</p><p>As Lineweaver writes: <em>"I often stay awake at night trying to bend my head around what it means\u2026 and then I fall asleep\u2026 inside a black hole."</em></p>',
+    cx: 26, cy: 53, zoom: 14 },
+];
+
+// === CANVAS & VIEW STATE ===
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+let W, H, viewCenterX = -4, viewCenterY = 12, pxPerDecade = 0;
+const WX0 = -40, WX1 = 29, WY0 = -44, WY1 = 56;
+
+function resize() {
+  W = window.innerWidth; H = window.innerHeight;
+  canvas.width = W * devicePixelRatio; canvas.height = H * devicePixelRatio;
+  canvas.style.width = W+'px'; canvas.style.height = H+'px';
+  ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);
+  if (pxPerDecade === 0) fitAll();
+  requestDraw();
+}
+function fitAll() {
+  pxPerDecade = Math.min((W-40)/(WX1-WX0), (H-80)/(WY1-WY0));
+  viewCenterX = (WX0+WX1)/2; viewCenterY = (WY0+WY1)/2;
+}
+function w2s(wx,wy) { return [W/2+(wx-viewCenterX)*pxPerDecade, H/2-(wy-viewCenterY)*pxPerDecade]; }
+function s2w(sx,sy) { return [viewCenterX+(sx-W/2)/pxPerDecade, viewCenterY-(sy-H/2)/pxPerDecade]; }
+
+// === SMOOTH ANIMATION ===
+let anim=false, aS, aD, aFCX, aFCY, aFZ, aTCX, aTCY, aTZ;
+function animateTo(cx,cy,z,dur) {
+  dur=dur||600; aFCX=viewCenterX; aFCY=viewCenterY; aFZ=pxPerDecade;
+  aTCX=cx; aTCY=cy; aTZ=z||pxPerDecade; aS=performance.now(); aD=dur;
+  if(!anim){anim=true; runAnim();}
+}
+function ease(t){return t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;}
+function runAnim(){
+  let t=Math.min(1,(performance.now()-aS)/aD), e=ease(t);
+  viewCenterX=aFCX+(aTCX-aFCX)*e; viewCenterY=aFCY+(aTCY-aFCY)*e;
+  pxPerDecade=aFZ+(aTZ-aFZ)*e; requestDraw();
+  if(t<1) requestAnimationFrame(runAnim); else anim=false;
+}
+
+// === CATEGORY FILTERS ===
+let activeCats = new Set(Object.keys(CATEGORIES));
+function buildCatBtns() {
+  const el=document.getElementById('cat-filters'); el.innerHTML='';
+  for(const[k,v]of Object.entries(CATEGORIES)){
+    const b=document.createElement('button');
+    b.className='cat-btn'+(activeCats.has(k)?' active':'');
+    b.innerHTML='<span class="dot" style="background:'+v.color+'"></span>'+v.label;
+    b.addEventListener('click',()=>{activeCats.has(k)?activeCats.delete(k):activeCats.add(k); b.classList.toggle('active'); requestDraw();});
+    el.appendChild(b);
+  }
+}
+
+// === SEARCH ===
+const searchBox=document.getElementById('search-box'), srEl=document.getElementById('search-results');
+let searchHL=null;
+searchBox.addEventListener('input',()=>{
+  const q=searchBox.value.trim().toLowerCase();
+  if(q.length<2){srEl.style.display='none';searchHL=null;requestDraw();return;}
+  const m=OBJECTS.filter(o=>o[0].toLowerCase().includes(q)).slice(0,12);
+  if(!m.length){srEl.style.display='none';searchHL=null;requestDraw();return;}
+  srEl.style.display='block'; srEl.innerHTML='';
+  for(const o of m){
+    const d=document.createElement('div'); d.className='sr-item';
+    d.innerHTML='<span class="dot" style="background:'+CATEGORIES[o[3]].color+'"></span><span>'+o[0]+'</span>';
+    d.addEventListener('click',()=>{searchHL=o;srEl.style.display='none';searchBox.value=o[0];animateTo(o[2],o[1],Math.max(pxPerDecade,25));});
+    srEl.appendChild(d);
+  }
+});
+searchBox.addEventListener('blur',()=>{setTimeout(()=>srEl.style.display='none',200);});
+
+// === DRAWING ===
+let drawReq=false;
+function requestDraw(){if(!drawReq){drawReq=true;requestAnimationFrame(draw);}}
+function draw(){
+  drawReq=false; ctx.clearRect(0,0,W,H);
+  ctx.fillStyle='#0a0e1a'; ctx.fillRect(0,0,W,H);
+  const[wxMin,wyMax]=s2w(0,0),[wxMax,wyMin]=s2w(W,H);
+  drawGrid(wxMin,wxMax,wyMin,wyMax);
+  drawBands(wxMin,wxMax);
+  drawForbidden();
+  drawIsoLines(wxMin,wxMax);
+  drawBoundary(wxMin,wxMax,wyMin,wyMax);
+  drawObjs();
+  drawAxes(wxMin,wxMax,wyMin,wyMax);
+}
+
+function drawGrid(wxMin,wxMax,wyMin,wyMax){
+  ctx.lineWidth=0.5;
+  const minor=pxPerDecade>=8;
+  for(let x=Math.floor(wxMin);x<=Math.ceil(wxMax);x++){
+    if(!minor&&x%5!==0)continue;
+    const[sx]=w2s(x,0); if(sx<0||sx>W)continue;
+    ctx.strokeStyle=x%10===0?'rgba(60,80,120,0.25)':x%5===0?'rgba(60,80,120,0.15)':'rgba(60,80,120,0.06)';
+    ctx.beginPath();ctx.moveTo(sx,0);ctx.lineTo(sx,H);ctx.stroke();
+  }
+  for(let y=Math.floor(wyMin);y<=Math.ceil(wyMax);y++){
+    if(!minor&&y%5!==0)continue;
+    const[,sy]=w2s(0,y); if(sy<0||sy>H)continue;
+    ctx.strokeStyle=y%10===0?'rgba(60,80,120,0.25)':y%5===0?'rgba(60,80,120,0.15)':'rgba(60,80,120,0.06)';
+    ctx.beginPath();ctx.moveTo(0,sy);ctx.lineTo(W,sy);ctx.stroke();
+  }
+}
+
+function drawBands(wxMin,wxMax){
+  ctx.save();
+  for(const b of EPOCH_BANDS){
+    const iH=isodensityIntercept(b.rhoHi), iL=isodensityIntercept(b.rhoLo);
+    const[x1,y1]=w2s(wxMin,iH+3*wxMin),[x2,y2]=w2s(wxMax,iH+3*wxMax);
+    const[x3,y3]=w2s(wxMax,iL+3*wxMax),[x4,y4]=w2s(wxMin,iL+3*wxMin);
+    ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.lineTo(x3,y3);ctx.lineTo(x4,y4);ctx.closePath();
+    ctx.fillStyle=b.color; ctx.fill();
+    if(b.label&&pxPerDecade>5){
+      const mi=(iH+iL)/2, mr=(wxMin+wxMax)/2, mm=mi+3*mr;
+      const[lx,ly]=w2s(mr,mm);
+      if(ly>44&&ly<H-30){
+        ctx.save();
+        ctx.translate(lx,ly); ctx.rotate(Math.atan2(-3*pxPerDecade,pxPerDecade));
+        ctx.font='bold 10px "JetBrains Mono",monospace'; ctx.fillStyle='rgba(255,255,255,0.10)';
+        ctx.textAlign='center'; ctx.fillText(b.label,0,0);
+        ctx.restore();
+      }
+    }
+  }
+  ctx.restore();
+}
+
+function drawForbidden(){
+  ctx.save();
+  // Gravity forbidden (left of BH line)
+  let pts=[];
+  for(let m=-55;m<=65;m+=.5)pts.push(w2s(bhRadius(m),m));
+  ctx.beginPath();ctx.moveTo(pts[0][0],pts[0][1]);
+  for(let i=1;i<pts.length;i++)ctx.lineTo(pts[i][0],pts[i][1]);
+  ctx.lineTo(-50,pts[pts.length-1][1]);ctx.lineTo(-50,pts[0][1]);ctx.closePath();
+  ctx.fillStyle='rgba(160,30,30,0.08)';ctx.fill();
+  // Quantum forbidden (left of Compton line)
+  pts=[];
+  for(let m=-55;m<=65;m+=.5)pts.push(w2s(comptonRadius(m),m));
+  ctx.beginPath();ctx.moveTo(pts[0][0],pts[0][1]);
+  for(let i=1;i<pts.length;i++)ctx.lineTo(pts[i][0],pts[i][1]);
+  ctx.lineTo(-50,pts[pts.length-1][1]);ctx.lineTo(-50,pts[0][1]);ctx.closePath();
+  ctx.fillStyle='rgba(40,30,160,0.08)';ctx.fill();
+  ctx.restore();
+}
+
+function drawIsoLines(wxMin,wxMax){
+  ctx.save();
+  for(const d of ISODENSITY_LINES){
+    const i=isodensityIntercept(d.rho);
+    const[x1,y1]=w2s(wxMin,i+3*wxMin),[x2,y2]=w2s(wxMax,i+3*wxMax);
+    ctx.strokeStyle='rgba(255,255,255,0.13)';ctx.lineWidth=0.8;ctx.setLineDash(d.dash);
+    ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
+    if(d.label&&pxPerDecade>4){
+      const r2=wxMax-2,[lx,ly]=w2s(r2,i+3*r2);
+      if(ly>44&&ly<H-20){
+        ctx.save();ctx.translate(lx,ly);ctx.rotate(Math.atan2(-3*pxPerDecade,pxPerDecade));
+        ctx.font='9px "JetBrains Mono",monospace';ctx.fillStyle='rgba(255,255,255,0.22)';
+        ctx.textAlign='left';ctx.fillText(d.label,6,-4);ctx.restore();
+      }
+    }
+  }
+  ctx.setLineDash([]);ctx.restore();
+}
+
+function drawBoundary(wxMin,wxMax,wyMin,wyMax){
+  ctx.save();
+  // BH line
+  let[x1,y1]=w2s(wxMin,wxMin-LOG10_RS_COEFF),[x2,y2]=w2s(wxMax,wxMax-LOG10_RS_COEFF);
+  ctx.strokeStyle='rgba(255,60,60,0.65)';ctx.lineWidth=1.8;
+  ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
+  if(pxPerDecade>3){
+    const lm=Math.max(wyMin+6,Math.min(wyMax-4,viewCenterY+10)),lr=bhRadius(lm);
+    const[lx,ly]=w2s(lr,lm);
+    ctx.save();ctx.translate(lx-10,ly-10);ctx.rotate(Math.atan2(-pxPerDecade,pxPerDecade));
+    ctx.font='bold 11px "JetBrains Mono",monospace';ctx.fillStyle='rgba(255,68,68,0.75)';
+    ctx.textAlign='center';ctx.fillText('BLACK HOLES  r = 2Gm/c\u00B2',0,0);ctx.restore();
+  }
+  // Compton line
+  [x1,y1]=w2s(wxMin,LOG10_LC_COEFF-wxMin);[x2,y2]=w2s(wxMax,LOG10_LC_COEFF-wxMax);
+  ctx.strokeStyle='rgba(100,100,255,0.65)';ctx.lineWidth=1.8;
+  ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
+  if(pxPerDecade>3){
+    const lm=Math.max(wyMin+4,Math.min(wyMax-6,viewCenterY-10)),lr=comptonRadius(lm);
+    const[lx,ly]=w2s(lr,lm);
+    ctx.save();ctx.translate(lx+10,ly-10);ctx.rotate(Math.atan2(pxPerDecade,pxPerDecade));
+    ctx.font='bold 11px "JetBrains Mono",monospace';ctx.fillStyle='rgba(110,110,255,0.75)';
+    ctx.textAlign='center';ctx.fillText('COMPTON  \u03BB = \u210F/mc',0,0);ctx.restore();
+  }
+  // Planck mass line
+  const[,sy]=w2s(0,PLANCK_MASS_LOG);
+  ctx.strokeStyle='rgba(255,255,255,0.12)';ctx.lineWidth=0.7;ctx.setLineDash([4,8]);
+  ctx.beginPath();ctx.moveTo(0,sy);ctx.lineTo(W,sy);ctx.stroke();ctx.setLineDash([]);
+  if(pxPerDecade>5){ctx.font='9px "JetBrains Mono",monospace';ctx.fillStyle='rgba(255,255,255,0.18)';ctx.textAlign='left';ctx.fillText('m = m\u209A (Planck mass)',8,sy-4);}
+  // Region labels
+  if(pxPerDecade>2.5){
+    ctx.font='13px "DM Sans",sans-serif';ctx.textAlign='center';
+    let m=viewCenterY+6,r=bhRadius(m)-6,[lx,ly]=w2s(r,m);
+    if(lx>0&&lx<W&&ly>44&&ly<H){ctx.fillStyle='rgba(200,60,60,0.20)';ctx.fillText('FORBIDDEN',lx,ly-8);ctx.fillText('BY GRAVITY',lx,ly+10);}
+    m=viewCenterY-12;r=comptonRadius(m)-6;[lx,ly]=w2s(r,m);
+    if(lx>0&&lx<W&&ly>44&&ly<H){ctx.fillStyle='rgba(60,60,200,0.20)';ctx.fillText('QUANTUM',lx,ly-8);ctx.fillText('UNCERTAINTY',lx,ly+10);}
+    [lx,ly]=w2s(PLANCK_LEN_LOG-10,PLANCK_MASS_LOG);
+    if(lx>0&&lx<W&&ly>44&&ly<H){ctx.fillStyle='rgba(100,100,100,0.25)';ctx.font='bold 14px "DM Sans",sans-serif';ctx.fillText('QG',lx,ly);}
+  }
+  ctx.restore();
+}
+
+function drawObjs(){
+  ctx.save();
+  const s1=pxPerDecade>=6, s2=pxPerDecade>=14;
+  for(const o of OBJECTS){
+    const[name,lM,lR,cat,lod,desc]=o;
+    if(!activeCats.has(cat))continue;
+    if(lod>=2&&!s2)continue; if(lod>=1&&!s1)continue;
+    const[sx,sy]=w2s(lR,lM);
+    if(sx<-60||sx>W+60||sy<-60||sy>H+60)continue;
+    const col=CATEGORIES[cat].color, r=lod===0?5:lod===1?4:3;
+    ctx.shadowColor=col;ctx.shadowBlur=r*3;
+    ctx.beginPath();ctx.arc(sx,sy,r,0,Math.PI*2);ctx.fillStyle=col;ctx.fill();
+    ctx.shadowBlur=0;
+    if(searchHL&&searchHL[0]===name){
+      ctx.strokeStyle='#fff';ctx.lineWidth=2;
+      ctx.beginPath();ctx.arc(sx,sy,r+6,0,Math.PI*2);ctx.stroke();
+      const t=(Date.now()%2000)/2000;ctx.globalAlpha=1-t;
+      ctx.beginPath();ctx.arc(sx,sy,r+6+t*20,0,Math.PI*2);ctx.stroke();
+      ctx.globalAlpha=1;requestDraw();
+    }
+    if(pxPerDecade>4||lod===0){
+      const sz=lod===0?11:lod===1?10:9;
+      ctx.font=sz+'px "JetBrains Mono",monospace';ctx.fillStyle=col;
+      ctx.globalAlpha=lod===0?.9:lod===1?.65:.5;
+      ctx.textAlign='left';ctx.fillText(name,sx+r+5,sy+3);ctx.globalAlpha=1;
+    }
+  }
+  ctx.restore();
+}
+
+function drawAxes(wxMin,wxMax,wyMin,wyMax){
+  ctx.save();
+  const step=pxPerDecade>15?5:pxPerDecade>6?10:20;
+  ctx.font='10px "JetBrains Mono",monospace';ctx.textAlign='center';
+  for(let x=Math.ceil(wxMin/step)*step;x<=wxMax;x+=step){
+    const[sx]=w2s(x,0);if(sx<30||sx>W-10)continue;
+    ctx.fillStyle='rgba(200,215,235,0.35)';ctx.fillText('10^'+x,sx,H-38);
+  }
+  ctx.fillStyle='rgba(200,215,235,0.28)';ctx.font='11px "DM Sans",sans-serif';
+  ctx.fillText('Radius (m) \u2192',W/2,H-22);
+  ctx.textAlign='right';ctx.font='10px "JetBrains Mono",monospace';
+  for(let y=Math.ceil(wyMin/step)*step;y<=wyMax;y+=step){
+    const[,sy]=w2s(0,y);if(sy<54||sy>H-50)continue;
+    ctx.fillStyle='rgba(200,215,235,0.35)';ctx.fillText('10^'+y,52,sy+3);
+  }
+  ctx.save();ctx.translate(14,H/2);ctx.rotate(-Math.PI/2);
+  ctx.fillStyle='rgba(200,215,235,0.28)';ctx.font='11px "DM Sans",sans-serif';
+  ctx.textAlign='center';ctx.fillText('Mass (kg) \u2192',0,0);ctx.restore();
+  ctx.restore();
+}
+
+// === TOOLTIP ===
+const tooltip=document.getElementById('tooltip');
+let hovObj=null;
+function fmtSI(lv,u){const v=Math.pow(10,lv);return(Math.abs(lv)<3?v.toFixed(2):v.toExponential(2))+' '+u;}
+function updateTT(mx,my){
+  const[wx,wy]=s2w(mx,my);
+  let best=null,bd=18;
+  for(const o of OBJECTS){
+    if(!activeCats.has(o[3]))continue;
+    if(o[4]>=2&&pxPerDecade<14)continue;if(o[4]>=1&&pxPerDecade<6)continue;
+    const[sx,sy]=w2s(o[2],o[1]),d=Math.hypot(sx-mx,sy-my);
+    if(d<bd){bd=d;best=o;}
+  }
+  if(best&&best!==hovObj){
+    hovObj=best;const[name,lM,lR,cat,,desc]=best,ci=CATEGORIES[cat];
+    tooltip.querySelector('.tt-name').textContent=name;
+    const ce=tooltip.querySelector('.tt-cat');ce.textContent=ci.label;ce.style.color=ci.color;
+    document.getElementById('tt-mass').textContent=fmtSI(lM,'kg')+'  (10^'+lM.toFixed(1)+')';
+    document.getElementById('tt-radius').textContent=fmtSI(lR,'m')+'  (10^'+lR.toFixed(1)+')';
+    document.getElementById('tt-density').textContent='10^'+(lM-Math.log10(4*Math.PI/3)-3*lR).toFixed(1)+' kg/m\u00B3';
+    tooltip.querySelector('.tt-desc').textContent=desc;
+    let tx=mx+20,ty=my-10;if(tx+330>W)tx=mx-340;if(ty+180>H)ty=my-180;if(ty<50)ty=50;
+    tooltip.style.left=tx+'px';tooltip.style.top=ty+'px';tooltip.classList.add('visible');
+  }else if(!best){hovObj=null;tooltip.classList.remove('visible');}
+  document.getElementById('coords').textContent='r = 10^'+wx.toFixed(1)+' m   m = 10^'+wy.toFixed(1)+' kg   \u03C1 \u2248 10^'+(wy-Math.log10(4*Math.PI/3)-3*wx).toFixed(1)+' kg/m\u00B3';
+}
+
+// === INPUT ===
+let drag=false,dSX,dSY,dCX,dCY;
+canvas.addEventListener('mousedown',e=>{drag=true;dSX=e.clientX;dSY=e.clientY;dCX=viewCenterX;dCY=viewCenterY;canvas.style.cursor='grabbing';});
+window.addEventListener('mousemove',e=>{
+  if(drag){viewCenterX=dCX-(e.clientX-dSX)/pxPerDecade;viewCenterY=dCY+(e.clientY-dSY)/pxPerDecade;requestDraw();}
+  updateTT(e.clientX,e.clientY);
+});
+window.addEventListener('mouseup',()=>{drag=false;canvas.style.cursor='crosshair';});
+canvas.addEventListener('wheel',e=>{
+  e.preventDefault();const[wx,wy]=s2w(e.clientX,e.clientY);
+  pxPerDecade=Math.max(1,Math.min(200,pxPerDecade*(e.deltaY<0?1.12:1/1.12)));
+  const[wx2,wy2]=s2w(e.clientX,e.clientY);viewCenterX-=(wx2-wx);viewCenterY-=(wy2-wy);
+  requestDraw();updateTT(e.clientX,e.clientY);
+},{passive:false});
+let ltD=0;
+canvas.addEventListener('touchstart',e=>{e.preventDefault();if(e.touches.length===1){drag=true;dSX=e.touches[0].clientX;dSY=e.touches[0].clientY;dCX=viewCenterX;dCY=viewCenterY;}else if(e.touches.length===2){drag=false;ltD=Math.hypot(e.touches[1].clientX-e.touches[0].clientX,e.touches[1].clientY-e.touches[0].clientY);}},{passive:false});
+canvas.addEventListener('touchmove',e=>{e.preventDefault();if(e.touches.length===1&&drag){viewCenterX=dCX-(e.touches[0].clientX-dSX)/pxPerDecade;viewCenterY=dCY+(e.touches[0].clientY-dSY)/pxPerDecade;requestDraw();}else if(e.touches.length===2){const d=Math.hypot(e.touches[1].clientX-e.touches[0].clientX,e.touches[1].clientY-e.touches[0].clientY),cx=(e.touches[0].clientX+e.touches[1].clientX)/2,cy=(e.touches[0].clientY+e.touches[1].clientY)/2,[wx,wy]=s2w(cx,cy);pxPerDecade=Math.max(1,Math.min(200,pxPerDecade*d/ltD));const[wx2,wy2]=s2w(cx,cy);viewCenterX-=(wx2-wx);viewCenterY-=(wy2-wy);ltD=d;requestDraw();}},{passive:false});
+canvas.addEventListener('touchend',()=>{drag=false;});
+
+// === INFO PANEL ===
+const infoPanel=document.getElementById('info-panel'),btnInfo=document.getElementById('btn-info');
+btnInfo.addEventListener('click',()=>{infoPanel.classList.toggle('open');btnInfo.classList.toggle('active');});
+
+// === TOUR ===
+const tourPanel=document.getElementById('tour-panel'),tourBody=document.getElementById('tour-body'),tourCounter=document.getElementById('tour-counter'),btnTour=document.getElementById('btn-tour');
+let tourOpen=false,tourIdx=0;
+function showStop(i){
+  tourIdx=i;const s=TOUR_STOPS[i];
+  tourBody.innerHTML='<h3>'+s.title+'</h3>'+s.body;
+  tourCounter.textContent=(i+1)+' / '+TOUR_STOPS.length;
+  document.getElementById('tour-prev').disabled=(i===0);
+  document.getElementById('tour-next').textContent=(i===TOUR_STOPS.length-1)?'Finish':'Next \u2192';
+  if(s.zoom===0){fitAll();requestDraw();}else animateTo(s.cx,s.cy,s.zoom,800);
+}
+window.tourNav=function(lr,lm,z){animateTo(lr,lm,z,600);};
+function openTour(){tourOpen=true;tourPanel.classList.add('open');btnTour.classList.add('active');showStop(0);}
+function closeTour(){tourOpen=false;tourPanel.classList.remove('open');btnTour.classList.remove('active');}
+btnTour.addEventListener('click',()=>{tourOpen?closeTour():openTour();});
+document.getElementById('tour-close').addEventListener('click',closeTour);
+document.getElementById('tour-prev').addEventListener('click',()=>{if(tourIdx>0)showStop(tourIdx-1);});
+document.getElementById('tour-next').addEventListener('click',()=>{tourIdx<TOUR_STOPS.length-1?showStop(tourIdx+1):closeTour();});
+
+// === RESET ===
+document.getElementById('btn-reset').addEventListener('click',()=>{searchHL=null;fitAll();requestDraw();});
+
+// === KEYBOARD ===
+window.addEventListener('keydown',e=>{
+  if(document.activeElement===searchBox)return;
+  if(e.key==='r'||e.key==='R'){searchHL=null;fitAll();requestDraw();}
+  if(e.key==='i'||e.key==='I'){infoPanel.classList.toggle('open');btnInfo.classList.toggle('active');}
+  if(e.key==='t'||e.key==='T'){tourOpen?closeTour():openTour();}
+  if(e.key==='Escape'){closeTour();infoPanel.classList.remove('open');btnInfo.classList.remove('active');}
+});
+
+// === INIT ===
+buildCatBtns(); window.addEventListener('resize',resize); resize();
+</script>
+</body>
+</html>
