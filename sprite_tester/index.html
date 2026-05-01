@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Forest Sprite Frame Tester</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <h1>Forest Sprite Frame Tester</h1>
+        <div class="subline" id="assetStatus">Loading sheets...</div>
+      </div>
+      <div class="readouts" aria-live="polite">
+        <span id="sheetReadout">Sheet -</span>
+        <span id="actionReadout">Action -</span>
+        <span id="frameReadout">Frame -</span>
+      </div>
+    </header>
+
+    <main class="app-shell">
+      <section class="stage-panel">
+        <div class="stage-toolbar">
+          <div class="toolbar-group">
+            <button id="prevFrame" title="Previous frame (Left)">Prev</button>
+            <button id="playToggle" title="Play or pause loop (Enter)">Play</button>
+            <button id="replayAction" title="Replay selected action from frame 1 (R)">Replay</button>
+            <button id="nextFrame" title="Next frame (Right or Space)">Next</button>
+          </div>
+          <div class="toolbar-group">
+            <button id="prevSheet" title="Previous sheet ([)">Sheet -</button>
+            <button id="nextSheet" title="Next sheet (])">Sheet +</button>
+          </div>
+        </div>
+
+        <div class="stage-wrap">
+          <canvas id="stageCanvas" width="960" height="640"></canvas>
+        </div>
+
+        <div class="filmstrip-wrap">
+          <canvas id="stripCanvas" width="960" height="132"></canvas>
+        </div>
+      </section>
+
+      <aside class="control-panel">
+        <section class="control-block">
+          <h2>Sheet</h2>
+          <div class="segmented" id="sheetButtons"></div>
+        </section>
+
+        <section class="control-block">
+          <h2>Actions</h2>
+          <div class="action-grid" id="actionButtons"></div>
+        </section>
+
+        <section class="control-block">
+          <h2>Frame</h2>
+          <input id="frameSlider" type="range" min="0" max="9" value="0">
+          <div class="meter-row">
+            <span id="frameCountReadout">0 / 0</span>
+            <span id="gridReadout">Grid -</span>
+          </div>
+        </section>
+
+        <section class="control-block compact">
+          <h2>Grid</h2>
+          <label>
+            Mode
+            <select id="gridMode">
+              <option value="detected">Detected lines</option>
+              <option value="forceExpected">Force sheet columns</option>
+            </select>
+          </label>
+          <label>
+            Inset X
+            <input id="insetX" type="range" min="0" max="8" value="2">
+          </label>
+          <label>
+            Inset Y
+            <input id="insetY" type="range" min="0" max="8" value="2">
+          </label>
+        </section>
+
+        <section class="control-block compact">
+          <h2>Playback</h2>
+          <label>
+            FPS
+            <input id="fps" type="range" min="1" max="24" value="8">
+          </label>
+          <label class="check-row">
+            <input id="loopToggle" type="checkbox" checked>
+            Loop
+          </label>
+          <label class="check-row">
+            <input id="ghostToggle" type="checkbox">
+            Onion
+          </label>
+          <label class="check-row">
+            <input id="gridToggle" type="checkbox" checked>
+            Crop
+          </label>
+          <label class="check-row">
+            <input id="smoothToggle" type="checkbox" checked>
+            Smooth
+          </label>
+        </section>
+
+        <section class="control-block compact">
+          <h2>Trajectory</h2>
+          <label>
+            Mode
+            <select id="motionMode">
+              <option value="pinned">Pinned</option>
+              <option value="path">Travel</option>
+            </select>
+          </label>
+          <label>
+            Direction
+            <select id="motionDirection">
+              <option value="right">Right</option>
+              <option value="left">Left</option>
+              <option value="up">Up</option>
+              <option value="down">Down</option>
+            </select>
+          </label>
+          <label>
+            Distance
+            <input id="travelDistance" type="range" min="0" max="520" value="0">
+          </label>
+          <label>
+            Lift
+            <input id="arcHeight" type="range" min="0" max="220" value="0">
+          </label>
+          <label>
+            Anchor
+            <select id="anchorMode">
+              <option value="ground">Ground</option>
+              <option value="center">Center</option>
+            </select>
+          </label>
+          <div class="meter-row">
+            <span id="motionReadout">Pinned</span>
+          </div>
+        </section>
+
+        <section class="control-block key-panel">
+          <h2>Keys</h2>
+          <div><kbd>1</kbd>-<kbd>5</kbd> action trigger</div>
+          <div><kbd>Space</kbd> next frame</div>
+          <div><kbd>Enter</kbd> loop play</div>
+          <div><kbd>R</kbd> replay action</div>
+          <div><kbd>M</kbd> trajectory</div>
+          <div><kbd>[</kbd><kbd>]</kbd> sheet</div>
+        </section>
+      </aside>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>
