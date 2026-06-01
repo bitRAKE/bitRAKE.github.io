@@ -175,6 +175,7 @@
     <ul class="toc" id="toc">
       <li class="grouphdr">Fundamentals</li>
       <li><a href="#notation">Notation — read first</a></li>
+      <li><a href="#c1-shorten" class="sub">8-bit C1 controls</a></li>
       <li><a href="#defaults">Parameters &amp; defaults</a></li>
       <li class="grouphdr">Host → Terminal</li>
       <li><a href="#c0">1 · C0 controls</a></li>
@@ -276,6 +277,31 @@ intro private   parameters   intermediate final
     </tbody>
   </table></div>
   <p class="callout">Spaces shown between bytes in the tables are <strong>for readability only</strong> — do not send them, <em>except</em> where the token is literally <code>SP</code> (<code>0x20</code>). <span class="muted">Tip: click any <span class="seq" data-noclip="1">grey&nbsp;byte&nbsp;chip</span> to copy its literal sequence (with <code>ESC</code> expanded to <code>\x1b</code>).</span></p>
+
+  <h3 id="c1-shorten">8-bit C1 controls — shortening sequences in both directions <a class="anchor" href="#c1-shorten">#</a></h3>
+  <p>Each introducer has a <strong>single-byte C1 equivalent</strong> that saves one byte over its 7-bit <code>ESC</code> form (<code>CSI</code> <code>0x9B</code> vs <code>ESC [</code>; <code>DCS</code> <code>0x90</code>; <code>OSC</code> <code>0x9D</code>; <code>ST</code> <code>0x9C</code>). Whether the single-byte form is used is governed by <strong>two independent toggles, one per direction</strong> — there is no single "C1 mode" that flips both.</p>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Direction</th><th>Enabled by</th><th>Internal flag</th><th class="disp">Effect</th></tr></thead>
+    <tbody>
+      <tr>
+        <td class="name">Inbound<br><span class="muted">host → terminal</span></td>
+        <td><span class="seq"><b>ESC</b> SP 7</span> DECAC1 (on)</td>
+        <td><code>StateMachine::Mode::AcceptC1</code></td>
+        <td class="disp">The parser accepts a C1 byte (e.g. <code>0x9B</code>) and <strong>immediately re-expands it</strong> to <code>ESC</code> + its 7-bit equivalent before dispatch (<code>ProcessCharacter(ESC); ProcessCharacter(_c1To7Bit(wch))</code>). So an app may transmit <code>0x9B…</code> instead of <code>ESC [ …</code>; behaviour is identical, only the wire is shorter.</td>
+      </tr>
+      <tr>
+        <td class="name">Outbound<br><span class="muted">terminal → host</span></td>
+        <td><span class="seq"><b>ESC</b> SP G</span> S8C1T (on)<br><span class="seq"><b>ESC</b> SP F</span> S7C1T (off)</td>
+        <td><code>TerminalInput::Mode::SendC1</code></td>
+        <td class="disp">Governs how the terminal emits <strong>query responses (§9) <em>and</em> key sequences</strong>: single-byte C1 when on, the 7-bit <code>ESC</code>-prefixed forms when off.</td>
+      </tr>
+    </tbody>
+  </table></div>
+  <div class="callout warn">
+    <p><strong>Both default to off</strong>, and <code>RIS</code> resets both off. Inbound is off deliberately: some single-byte code pages map graphic glyphs into the <code>0x80</code>–<code>0x9F</code> range, so the parser ignores C1 by default to avoid those bytes triggering unintended escape sequences.</p>
+    <p><strong>UTF-8 note (matters for your setup).</strong> Enabling <em>outbound</em> C1 (<code>S8C1T</code>) is <strong>refused unless the input code page is UTF-8 (<code>CP_UTF8</code>) or ISO-8859-1 (<code>28591</code>)</strong>, so the single byte has a valid encoding — on a UTF-8 terminal, <code>S8C1T</code> takes effect. Inbound (<code>DECAC1</code>) has no such code-page guard. The two toggles are unlinked: you can accept 8-bit input while still receiving 7-bit replies, or the reverse.</p>
+  </div>
+  <p class="muted">Verified in <code>adaptDispatch.cpp</code> (<code>AcceptC1Controls</code> / <code>SendC1Controls</code>, the code-page guard, and the <code>_ReturnCsiResponse</code>/<code>_ReturnDcsResponse</code>/<code>_ReturnOscResponse</code> helpers) and <code>stateMachine.cpp</code> (the <code>AcceptC1</code> re-expansion).</p>
 </section>
 
 <!-- ===================== DEFAULTS ===================== -->
@@ -749,7 +775,7 @@ operator VTInt()       const { return _value <= 0 ? 1 : _value; }    // omitted 
 _ReturnDcsResponse(body)  ->  DCS  body  ST         // DCS = ESCP  or  0x90 ;  ST = ESC\ or 0x9C
 _ReturnOscResponse(body)  ->  OSC  body  ST         // OSC = ESC]  or  0x9D ;  ST = ESC\ or 0x9C</code></pre>
   <div class="callout">
-    <p><strong>8-bit nuance (verified).</strong> The introducer is chosen at send time from <code>TerminalInput::Mode::SendC1</code>. When the app has enabled 8-bit C1 transmission (via <code>S8C1T</code>, <code>ESC SP G</code>), responses use the <strong>single-byte C1</strong> forms (<code>CSI</code>=<code>0x9B</code>, <code>DCS</code>=<code>0x90</code>, <code>OSC</code>=<code>0x9D</code>, <code>ST</code>=<code>0x9C</code>); otherwise the <strong>7-bit</strong> forms (<code>ESC [</code>, <code>ESC P</code>, <code>ESC ]</code>, <code>ESC \</code>). The bodies below are shown <strong>without</strong> the introducer/terminator. All numeric coordinates are <strong>1-based</strong> (VT origin 1,1).</p>
+    <p><strong>8-bit nuance (verified).</strong> The introducer is chosen at send time from <code>TerminalInput::Mode::SendC1</code>. When the app has enabled 8-bit C1 transmission (via <code>S8C1T</code>, <code>ESC SP G</code>), responses use the <strong>single-byte C1</strong> forms (<code>CSI</code>=<code>0x9B</code>, <code>DCS</code>=<code>0x90</code>, <code>OSC</code>=<code>0x9D</code>, <code>ST</code>=<code>0x9C</code>); otherwise the <strong>7-bit</strong> forms (<code>ESC [</code>, <code>ESC P</code>, <code>ESC ]</code>, <code>ESC \</code>). This is the <em>outbound</em> half of the two C1 toggles — see <a href="#c1-shorten">§0 · 8-bit C1 controls</a>. The bodies below are shown <strong>without</strong> the introducer/terminator. All numeric coordinates are <strong>1-based</strong> (VT origin 1,1).</p>
   </div>
   <div class="callout warn">
     <p>Under ConPTY, some of these are suppressed or forwarded rather than answered locally (e.g. the Kitty-keyboard query returns early when <code>IsConPTY()</code>), because the real terminal downstream is the authority.</p>
@@ -882,7 +908,7 @@ _ReturnOscResponse(body)  ->  OSC  body  ST         // OSC = ESC]  or  0x9D ;  S
   <ul class="tight">
     <li><strong>Verified directly from source:</strong> all byte sequences, the dispatch wiring (which handler each maps to), parameter signatures, the <code>VTParameter</code> default rules, and the value enums in §7/§8 (plus EraseType, TabClearType, TabSetType, CursorStyle, StatusType, WindowManipulationType, ColorItem, ChangeExtent, ModeResponses).</li>
     <li><code>DECSCPP</code> (<code>CSI $ |</code>) and OSC <code>3</code> (SetWindowProperty) are recognized but unimplemented (fall through / no-op).</li>
-    <li>C1 controls (0x80–0x9F) reach the same dispatchers as their 7-bit <code>ESC</code> equivalents when 8-bit C1 acceptance is enabled (<code>DECAC1</code> / <code>S8C1T</code>).</li>
+    <li>8-bit C1 controls are two independent, per-direction toggles (see <a href="#c1-shorten">§0 · 8-bit C1 controls</a>): <strong>inbound</strong> reception is <code>DECAC1</code> (<code>StateMachine::Mode::AcceptC1</code>) — accepted C1 bytes are re-expanded to <code>ESC</code> + 7-bit before dispatch; <strong>outbound</strong> sending of responses/key-sequences is <code>S8C1T</code>/<code>S7C1T</code> (<code>TerminalInput::Mode::SendC1</code>), and is refused unless the input code page is UTF-8 or ISO-8859-1. <code>DECAC1</code> and <code>S8C1T</code> are <em>not</em> the same flag.</li>
     <li>Format selectors for the state-report family: <code>ReportFormat</code> (DECRQTSR/DECRSTS) <code>1</code> TerminalStateReport, <code>2</code> ColorTableReport; <code>PresentationReportFormat</code> (DECRQPSR/DECRSPS) <code>1</code> CursorInformationReport, <code>2</code> TabulationStopReport. <code>LineFeedType</code>: WithReturn, WithoutReturn, DependsOnMode. <code>CharsetSize</code>: <code>0</code> = 94-char, <code>1</code> = 96-char.</li>
     <li><strong>Scope:</strong> this reference documents sequences handled by the <code>AdaptDispatch</code> <em>output</em> adapter. Keyboard/mouse <em>input</em> encoding (what arrow keys or SGR mouse events send) lives in <code>TerminalInput</code> / <code>InputStateMachineEngine</code> and is not covered here.</li>
   </ul>
