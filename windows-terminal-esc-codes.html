@@ -1,0 +1,1044 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Windows Terminal — VT / Escape Sequence Reference</title>
+<meta name="description" content="A code-verified reference for every escape sequence supported by Windows Terminal (microsoft/terminal), including the reports the terminal sends back. Source-of-truth: the parser/adapter code, not the lagging MS Learn doc.">
+<style>
+  :root{
+    --bg:#0d1117; --bg-elev:#161b22; --bg-elev2:#1c232c; --bg-code:#1b2531;
+    --border:#283039; --border-soft:#21272f;
+    --fg:#e6edf3; --fg-dim:#9da7b1; --fg-faint:#6e7781;
+    --accent:#4ca3ff; --accent-soft:#1f6feb33;
+    --warn-bg:#3a2317; --warn-border:#9e6a3d; --warn-fg:#ffd9b0;
+    --ok:#3fb950; --kbd-bg:#0b1118; --kbd-border:#30363d;
+    --tag-esc:#d2a8ff; --tag-csi:#79c0ff; --tag-dcs:#f0883e; --tag-osc:#56d364; --tag-c0:#ff7b72;
+    --radius:9px; --maxw:1080px;
+    --mono:"Cascadia Code","SF Mono",Consolas,"Liberation Mono",Menlo,monospace;
+    --sans:"Segoe UI",system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;
+  }
+  html[data-theme="light"]{
+    --bg:#ffffff; --bg-elev:#f6f8fa; --bg-elev2:#eef1f4; --bg-code:#f3f5f8;
+    --border:#d8dee4; --border-soft:#e6eaef;
+    --fg:#1f2328; --fg-dim:#57606a; --fg-faint:#8c959f;
+    --accent:#0969da; --accent-soft:#0969da1a;
+    --warn-bg:#fff5e6; --warn-border:#e0a458; --warn-fg:#6b4516;
+    --ok:#1a7f37; --kbd-bg:#f6f8fa; --kbd-border:#d8dee4;
+    --tag-esc:#8250df; --tag-csi:#0969da; --tag-dcs:#bc4c00; --tag-osc:#1a7f37; --tag-c0:#cf222e;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0; background:var(--bg); color:var(--fg);
+    font-family:var(--sans); font-size:15.5px; line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+  }
+  a{color:var(--accent); text-decoration:none}
+  a:hover{text-decoration:underline}
+
+  /* layout */
+  .wrap{display:grid; grid-template-columns:288px minmax(0,1fr); gap:0; max-width:1480px; margin:0 auto}
+  @media(max-width:980px){ .wrap{grid-template-columns:1fr} }
+
+  /* sidebar */
+  aside{
+    position:sticky; top:0; align-self:start; height:100vh; overflow-y:auto;
+    border-right:1px solid var(--border); padding:22px 14px 60px 22px; background:var(--bg-elev);
+  }
+  @media(max-width:980px){ aside{position:static; height:auto; border-right:none; border-bottom:1px solid var(--border)} }
+  aside .brand{font-weight:700; font-size:15px; letter-spacing:.2px; margin:0 0 4px}
+  aside .brand small{display:block; font-weight:400; color:var(--fg-faint); font-size:12px; margin-top:2px}
+  .toc{list-style:none; margin:14px 0 0; padding:0; font-size:13.5px}
+  .toc li{margin:1px 0}
+  .toc a{display:block; padding:4px 10px; border-radius:6px; color:var(--fg-dim); border-left:2px solid transparent}
+  .toc a:hover{background:var(--bg-elev2); text-decoration:none; color:var(--fg)}
+  .toc a.active{color:var(--fg); background:var(--accent-soft); border-left-color:var(--accent); font-weight:600}
+  .toc .sub{padding-left:20px; font-size:12.5px}
+  .toc .grouphdr{margin:14px 0 4px; padding:0 10px; font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--fg-faint)}
+
+  /* main */
+  main{padding:34px 44px 120px; max-width:var(--maxw)}
+  @media(max-width:680px){ main{padding:22px 16px 80px} }
+
+  header.hero{margin-bottom:8px}
+  header.hero h1{font-size:30px; line-height:1.2; margin:0 0 6px; letter-spacing:-.4px}
+  header.hero .lede{color:var(--fg-dim); font-size:16px; max-width:62ch; margin:0 0 14px}
+
+  .toolbar{display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin:18px 0 6px}
+  .search{flex:1 1 320px; position:relative; min-width:220px}
+  .search input{
+    width:100%; padding:10px 12px 10px 36px; font-size:14px; font-family:var(--sans);
+    background:var(--bg-elev); color:var(--fg); border:1px solid var(--border); border-radius:8px;
+  }
+  .search input:focus{outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft)}
+  .search svg{position:absolute; left:11px; top:50%; transform:translateY(-50%); width:15px; height:15px; fill:var(--fg-faint)}
+  .btn{
+    padding:9px 13px; font-size:13px; font-family:var(--sans); cursor:pointer;
+    background:var(--bg-elev); color:var(--fg); border:1px solid var(--border); border-radius:8px;
+  }
+  .btn:hover{border-color:var(--accent); color:var(--accent)}
+  .filternote{font-size:12.5px; color:var(--fg-faint); margin:2px 0 0}
+
+  /* provenance / source files */
+  .prov{
+    border:1px solid var(--border); border-radius:var(--radius); background:var(--bg-elev);
+    padding:16px 18px; margin:20px 0;
+  }
+  .prov h3{margin:0 0 8px; font-size:13px; text-transform:uppercase; letter-spacing:.07em; color:var(--fg-faint); font-weight:700}
+  .prov ul{margin:0; padding-left:18px}
+  .prov li{margin:5px 0; font-size:14px}
+
+  /* callout */
+  .callout{
+    border-left:4px solid var(--accent); background:var(--accent-soft);
+    border-radius:0 var(--radius) var(--radius) 0; padding:12px 16px; margin:18px 0; font-size:14.5px;
+  }
+  .callout.warn{border-left-color:var(--warn-border); background:var(--warn-bg); color:var(--warn-fg)}
+  .callout.warn a{color:inherit; text-decoration:underline}
+  .callout strong{font-weight:700}
+  .callout p{margin:6px 0}
+  .callout p:first-child{margin-top:0}
+  .callout p:last-child{margin-bottom:0}
+
+  /* sections */
+  section{scroll-margin-top:14px; padding-top:8px}
+  h2{
+    font-size:22px; margin:42px 0 6px; padding-bottom:8px; border-bottom:1px solid var(--border);
+    letter-spacing:-.2px; display:flex; align-items:baseline; gap:10px; flex-wrap:wrap;
+  }
+  h2 .num{color:var(--accent); font-variant-numeric:tabular-nums; font-weight:700}
+  h3{font-size:16px; margin:26px 0 6px; color:var(--fg)}
+  h3 .anchor,h2 .anchor{opacity:0; font-size:.7em; color:var(--fg-faint); margin-left:4px; transition:opacity .15s}
+  h2:hover .anchor,h3:hover .anchor{opacity:1}
+  .lead-files{font-size:13px; color:var(--fg-faint); margin:-2px 0 10px}
+  .lead-files code{color:var(--fg-dim)}
+
+  p{margin:10px 0}
+  .muted{color:var(--fg-dim)}
+  ul.tight li{margin:5px 0}
+
+  /* code & sequences */
+  code{font-family:var(--mono); font-size:.88em; background:var(--bg-code); border:1px solid var(--border-soft);
+       padding:1px 5px; border-radius:5px; white-space:nowrap}
+  pre{background:var(--bg-code); border:1px solid var(--border); border-radius:var(--radius); padding:14px 16px;
+      overflow-x:auto; margin:14px 0; line-height:1.5}
+  pre code{background:none; border:none; padding:0; white-space:pre; font-size:13px}
+  .seq{
+    font-family:var(--mono); font-size:13px; background:var(--bg-code); border:1px solid var(--border);
+    padding:2px 7px; border-radius:6px; white-space:nowrap; cursor:copy; color:var(--fg);
+    display:inline-block; transition:border-color .12s, background .12s;
+  }
+  .seq:hover{border-color:var(--accent)}
+  .seq.copied{border-color:var(--ok); background:color-mix(in srgb,var(--ok) 16%, var(--bg-code))}
+  .seq b{color:var(--tag-csi); font-weight:600}      /* introducer */
+  .resp{font-family:var(--mono); font-size:13px; color:var(--ok)}
+
+  /* tables */
+  .tbl-wrap{overflow-x:auto; margin:12px 0; border:1px solid var(--border); border-radius:var(--radius)}
+  table{border-collapse:collapse; width:100%; font-size:13.8px}
+  thead th{
+    position:sticky; top:0; background:var(--bg-elev2); text-align:left; font-weight:600;
+    padding:9px 12px; border-bottom:1px solid var(--border); color:var(--fg); white-space:nowrap; z-index:1;
+  }
+  tbody td{padding:8px 12px; border-bottom:1px solid var(--border-soft); vertical-align:top}
+  tbody tr:last-child td{border-bottom:none}
+  tbody tr:hover{background:var(--bg-elev)}
+  td .name{font-weight:600; white-space:nowrap}
+  td.disp code{white-space:normal}
+  .pill{display:inline-block; font-size:11px; font-weight:700; padding:1px 7px; border-radius:20px; letter-spacing:.02em;
+        border:1px solid currentColor}
+  .pill.na{color:var(--tag-c0); opacity:.9}
+
+  /* SGR swatches */
+  .sw{display:inline-block; width:13px; height:13px; border-radius:3px; border:1px solid #0006; vertical-align:-2px; margin-right:6px}
+
+  footer{margin-top:60px; padding-top:20px; border-top:1px solid var(--border); color:var(--fg-faint); font-size:13px}
+  .nowrap{white-space:nowrap}
+  .hl{color:var(--accent); font-weight:600}
+  .no-results{display:none; padding:30px; text-align:center; color:var(--fg-faint); font-size:15px}
+
+  /* tag legend chips for byte families */
+  .legend{display:flex; gap:8px; flex-wrap:wrap; margin:8px 0 0}
+  .chip{font-size:12px; padding:3px 9px; border-radius:20px; border:1px solid var(--border); color:var(--fg-dim)}
+  mark{background:color-mix(in srgb,var(--accent) 35%, transparent); color:inherit; border-radius:3px; padding:0 1px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<!-- ============ SIDEBAR ============ -->
+<aside>
+  <p class="brand">Windows Terminal<small>VT / Escape-Sequence Reference</small></p>
+  <button class="btn" id="themeBtn" style="width:100%;margin-top:6px">◐ Toggle theme</button>
+  <nav>
+    <ul class="toc" id="toc">
+      <li class="grouphdr">Fundamentals</li>
+      <li><a href="#notation">Notation — read first</a></li>
+      <li><a href="#defaults">Parameters &amp; defaults</a></li>
+      <li class="grouphdr">Host → Terminal</li>
+      <li><a href="#c0">1 · C0 controls</a></li>
+      <li><a href="#esc">2 · ESC sequences</a></li>
+      <li><a href="#csi">3 · CSI sequences</a></li>
+      <li><a href="#dcs">4 · DCS sequences</a></li>
+      <li><a href="#osc">5 · OSC sequences</a></li>
+      <li><a href="#vt52">6 · VT52 sequences</a></li>
+      <li><a href="#sgr">7 · SGR parameters</a></li>
+      <li><a href="#modes">8 · SM / RM modes</a></li>
+      <li class="grouphdr">Terminal → Host</li>
+      <li><a href="#reports">9 · Reports (replies)</a></li>
+      <li class="grouphdr">Appendix</li>
+      <li><a href="#notes">Verification notes</a></li>
+    </ul>
+  </nav>
+</aside>
+
+<!-- ============ MAIN ============ -->
+<main>
+<header class="hero">
+  <h1>Windows Terminal — Escape Sequence Reference</h1>
+  <p class="lede">Every control sequence the Windows Terminal output engine recognizes, plus the reports it sends back — derived directly from the <a href="https://github.com/microsoft/terminal">microsoft/terminal</a> source. The code is the source of truth.</p>
+  <div class="legend">
+    <span class="chip" style="border-color:var(--tag-c0)">C0 controls</span>
+    <span class="chip" style="border-color:var(--tag-esc)">ESC</span>
+    <span class="chip" style="border-color:var(--tag-csi)">CSI</span>
+    <span class="chip" style="border-color:var(--tag-dcs)">DCS</span>
+    <span class="chip" style="border-color:var(--tag-osc)">OSC</span>
+  </div>
+</header>
+
+<div class="toolbar">
+  <div class="search">
+    <svg viewBox="0 0 16 16"><path d="M11.7 10.3a5.5 5.5 0 1 0-1.4 1.4l3 3a1 1 0 0 0 1.4-1.4l-3-3ZM3 6.5a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0Z"/></svg>
+    <input id="filter" type="search" placeholder="Filter — name, byte, e.g.  DECSTBM,  CSI ? 25 h,  cursor,  OSC 8 …" autocomplete="off" spellcheck="false">
+  </div>
+  <button class="btn" id="clearBtn">Clear</button>
+</div>
+<p class="filternote" id="filterNote">Filtering matches sequence names, byte patterns, and descriptions across every table.</p>
+
+<div class="prov">
+  <h3>Source of truth — read from these files</h3>
+  <ul>
+    <li><a href="https://github.com/microsoft/terminal/blob/main/src/terminal/parser/OutputStateMachineEngine.hpp"><code>parser/OutputStateMachineEngine.hpp</code></a> — the <code>*ActionCodes</code> enums define every recognized byte sequence (<code>VTID("…")</code>).</li>
+    <li><a href="https://github.com/microsoft/terminal/blob/main/src/terminal/parser/OutputStateMachineEngine.cpp"><code>parser/OutputStateMachineEngine.cpp</code></a> — <code>ActionExecute</code> / <code>ActionEscDispatch</code> / <code>ActionVt52EscDispatch</code> / <code>ActionCsiDispatch</code> / <code>ActionDcsDispatch</code> / <code>ActionOscDispatch</code> map each sequence to a dispatch call.</li>
+    <li><a href="https://github.com/microsoft/terminal/blob/main/src/terminal/adapter/ITermDispatch.hpp"><code>adapter/ITermDispatch.hpp</code></a> — dispatch interface; signatures show each sequence's parameters.</li>
+    <li><a href="https://github.com/microsoft/terminal/blob/main/src/terminal/adapter/DispatchTypes.hpp"><code>adapter/DispatchTypes.hpp</code></a> — the <code>VTParameter</code> default rules and the parameter-value enums (SGR, modes, erase, cursor style, status…).</li>
+    <li><a href="https://github.com/microsoft/terminal/blob/main/src/terminal/adapter/adaptDispatch.cpp"><code>adapter/adaptDispatch.cpp</code></a> / <a href="https://github.com/microsoft/terminal/blob/main/src/terminal/adapter/adaptDispatchGraphics.cpp"><code>adaptDispatchGraphics.cpp</code></a> — the concrete handlers (and the report generators in §9).</li>
+  </ul>
+</div>
+
+<div class="callout warn">
+  <p>⚠️ <strong>Do not trust Microsoft Learn as the spec.</strong> The official <a href="https://learn.microsoft.com/en-us/windows/console/console-virtual-terminal-sequences"><em>Console Virtual Terminal Sequences</em></a> page not only <strong>lags the repo</strong> — it omits many sequences listed here (DCS, most rectangular-area ops, the Kitty keyboard protocol, the newer DEC private modes, several OSCs) — it also contains <strong>outright errors when checked against the code</strong>.</p>
+  <p>Where the doc and the source disagree, the source wins. This reference follows the source.</p>
+</div>
+
+<!-- ===================== NOTATION ===================== -->
+<section id="notation">
+  <h2><span class="num">§0</span> Notation — read this first <a class="anchor" href="#notation">#</a></h2>
+  <p>Everything in this document is built from one encoding. Every escape sequence begins with one of a small set of <strong>introducers</strong>, followed by optional <strong>parameters</strong> and <strong>intermediate</strong> bytes, and ends with a <strong>final</strong> byte that selects the command.</p>
+
+  <h3>Introducers <a class="anchor" href="#notation">#</a></h3>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Symbol</th><th>Bytes</th><th>7-bit form</th><th>C1 (8-bit)</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td><code>ESC</code></td><td><code>0x1B</code></td><td>—</td><td>—</td><td>Escape — starts every sequence below</td></tr>
+      <tr><td><code>CSI</code></td><td><code>ESC [</code></td><td><code>0x1B 0x5B</code></td><td><code>0x9B</code></td><td>Control Sequence Introducer</td></tr>
+      <tr><td><code>DCS</code></td><td><code>ESC P</code></td><td><code>0x1B 0x50</code></td><td><code>0x90</code></td><td>Device Control String</td></tr>
+      <tr><td><code>OSC</code></td><td><code>ESC ]</code></td><td><code>0x1B 0x5D</code></td><td><code>0x9D</code></td><td>Operating System Command</td></tr>
+      <tr><td><code>ST</code></td><td><code>ESC \</code></td><td><code>0x1B 0x5C</code></td><td><code>0x9C</code></td><td>String Terminator (ends DCS/OSC; <code>BEL</code> <code>0x07</code> also accepted)</td></tr>
+      <tr><td><code>SP</code></td><td><code>0x20</code></td><td>—</td><td>—</td><td>a literal space byte, used as an intermediate</td></tr>
+    </tbody>
+  </table></div>
+  <p class="muted">The 8-bit C1 single-byte forms are accepted only when 8-bit C1 reception is enabled (see <code>DECAC1</code> / <code>S8C1T</code>). Otherwise use the 7-bit <code>ESC</code>-prefixed forms shown throughout.</p>
+
+  <h3>Anatomy of a CSI sequence <a class="anchor" href="#notation">#</a></h3>
+<pre><code>CSI  ?      38 ; 5 ; 196        SP        m
+└┬┘  └┬┘    └──────┬──────┘     └┬┘      └┬┘
+intro private   parameters   intermediate final
+     prefix    (';'-separated,            byte
+               ':' for sub-params)</code></pre>
+  <ul class="tight">
+    <li><strong>Parameters</strong> (<code>Ps</code>, <code>Pn</code>, <code>Pl</code>, <code>Pc</code>, …) are decimal numbers separated by <code>;</code>. A parameter may be <strong>omitted</strong> (e.g. <code>CSI ; 5 H</code>), in which case its default applies.</li>
+    <li><strong>Sub-parameters</strong> are separated by <code>:</code> within one parameter (used by SGR, e.g. <code>38:2:255:0:0</code>).</li>
+    <li><strong>Private/prefix bytes</strong> (<code>?</code> <code>&gt;</code> <code>=</code> <code>&lt;</code> <code>!</code>) and <strong>intermediate bytes</strong> (<code>SP</code> <code>"</code> <code>$</code> <code>'</code> <code>*</code> <code>,</code> <code>#</code> <code>&amp;</code>) sit between the introducer/params and the final byte; they are part of what selects the command. A sequence written <code>CSI ? Ps h</code> means literally <code>ESC [ ? &lt;number&gt; h</code>.</li>
+  </ul>
+
+  <h3>Parameter-name conventions used in the tables <a class="anchor" href="#notation">#</a></h3>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Token</th><th>Means</th></tr></thead>
+    <tbody>
+      <tr><td><code>Ps</code></td><td>a single selective/numeric parameter</td></tr>
+      <tr><td><code>Pn</code></td><td>a numeric count or distance</td></tr>
+      <tr><td><code>Pl</code> ; <code>Pc</code></td><td>line ; column</td></tr>
+      <tr><td><code>Pt;Pl;Pb;Pr</code></td><td>top ; left ; bottom ; right (rectangle)</td></tr>
+      <tr><td><code>&lt;F&gt;</code></td><td>a single final "designator" byte (e.g. a charset id)</td></tr>
+      <tr><td><code>…</code></td><td>a data string, terminated by <code>ST</code> (for DCS/OSC)</td></tr>
+    </tbody>
+  </table></div>
+  <p class="callout">Spaces shown between bytes in the tables are <strong>for readability only</strong> — do not send them, <em>except</em> where the token is literally <code>SP</code> (<code>0x20</code>). <span class="muted">Tip: click any <span class="seq" data-noclip="1">grey&nbsp;byte&nbsp;chip</span> to copy its literal sequence (with <code>ESC</code> expanded to <code>\x1b</code>).</span></p>
+</section>
+
+<!-- ===================== DEFAULTS ===================== -->
+<section id="defaults">
+  <h2><span class="num">§0.1</span> How parameters &amp; defaults work <a class="anchor" href="#defaults">#</a></h2>
+  <p>A numeric parameter is a <code>VTParameter</code> (<code>DispatchTypes.hpp</code>). The default is applied <strong>by the type the parameter is read as</strong>, right at the dispatch site (<code>parameters.at(N)</code>):</p>
+<pre><code>VTParameter() : _value{ -1 } {}                 // an OMITTED parameter is stored as -1
+bool  has_value()      const { return _value >= 0; }
+VTInt value()          const { return _value; }
+VTInt value_or(d)      const { return _value < 0 ? d : _value; }     // omitted -> d
+operator T()  /*enum*/ const { return static_cast&lt;T&gt;(value_or(0)); } // omitted -> 0
+operator VTInt()       const { return _value <= 0 ? 1 : _value; }    // omitted OR 0 -> 1</code></pre>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Read as</th><th>Omitted (<code>-1</code>)</th><th>Explicit <code>0</code></th><th>Rule</th></tr></thead>
+    <tbody>
+      <tr><td><code>VTInt</code> — numeric: counts, distances, positions</td><td><span class="hl">1</span></td><td><span class="hl">1</span></td><td>implicit <code>operator VTInt()</code></td></tr>
+      <tr><td><code>enum</code> — selective: erase type, mode, cursor style…</td><td><span class="hl">0</span></td><td>0</td><td>implicit <code>operator T()</code> → <code>value_or(0)</code></td></tr>
+      <tr><td><code>value_or(0)</code> explicitly — margins, rectangle coords</td><td><span class="hl">0</span></td><td>0</td><td>"0 = use the natural extent"</td></tr>
+    </tbody>
+  </table></div>
+  <p><code>VTParameters::at(i)</code> past the end returns an omitted parameter, and <code>size()</code> is always ≥ 1 (an empty list == one default parameter). Selective sequences (ED, EL, SM/RM, TBC…) use <code>for_each</code>, applying the action once per supplied parameter. Defaults shown in the tables are what the handler receives for an <em>omitted</em> parameter.</p>
+</section>
+
+<!-- ===================== §1 C0 ===================== -->
+<section id="c0">
+  <h2><span class="num">§1</span> C0 control characters <a class="anchor" href="#c0">#</a></h2>
+  <p class="lead-files">Dispatched by <code>ActionExecute</code>.</p>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Byte</th><th>Name</th><th class="disp">Action</th></tr></thead>
+    <tbody>
+      <tr><td><span class="seq">0x05</span></td><td class="name">ENQ</td><td class="disp"><code>EnquireAnswerback()</code></td></tr>
+      <tr><td><span class="seq">0x07</span></td><td class="name">BEL</td><td class="disp"><code>WarningBell()</code></td></tr>
+      <tr><td><span class="seq">0x08</span></td><td class="name">BS</td><td class="disp"><code>CursorBackward(1)</code></td></tr>
+      <tr><td><span class="seq">0x09</span></td><td class="name">HT / TAB</td><td class="disp"><code>ForwardTab(1)</code></td></tr>
+      <tr><td><span class="seq">0x0A</span> <span class="seq">0x0C</span> <span class="seq">0x0B</span></td><td class="name">LF / FF / VT</td><td class="disp"><code>LineFeed(DependsOnMode)</code> — identical</td></tr>
+      <tr><td><span class="seq">0x0D</span></td><td class="name">CR</td><td class="disp"><code>CarriageReturn()</code></td></tr>
+      <tr><td><span class="seq">0x0E</span></td><td class="name">SO</td><td class="disp"><code>LockingShift(1)</code> — invoke G1 into GL</td></tr>
+      <tr><td><span class="seq">0x0F</span></td><td class="name">SI</td><td class="disp"><code>LockingShift(0)</code> — invoke G0 into GL</td></tr>
+      <tr><td><span class="seq">0x1A</span></td><td class="name">SUB</td><td class="disp">prints <code>U+2426</code> (substitute glyph)</td></tr>
+      <tr><td><span class="seq">0x7F</span></td><td class="name">DEL</td><td class="disp">passed to <code>Print</code> (translated only if a 96-char set is designated, else filtered)</td></tr>
+    </tbody>
+  </table></div>
+  <p class="muted">Any other C0 control is silently swallowed (does not fill the buffer).</p>
+</section>
+
+<!-- ===================== §2 ESC ===================== -->
+<section id="esc">
+  <h2><span class="num">§2</span> ESC sequences <a class="anchor" href="#esc">#</a></h2>
+  <p class="lead-files"><code>EscActionCodes</code> / <code>ActionEscDispatch</code>. Byte sequence is <code>ESC</code> + the bytes shown.</p>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Bytes</th><th>Name</th><th class="disp">Dispatch</th></tr></thead>
+    <tbody>
+      <tr><td><span class="seq"><b>ESC</b> 6</span></td><td class="name">DECBI</td><td class="disp"><code>BackIndex()</code></td></tr>
+      <tr><td><span class="seq"><b>ESC</b> 7</span></td><td class="name">DECSC</td><td class="disp"><code>CursorSaveState()</code></td></tr>
+      <tr><td><span class="seq"><b>ESC</b> 8</span></td><td class="name">DECRC</td><td class="disp"><code>CursorRestoreState()</code></td></tr>
+      <tr><td><span class="seq"><b>ESC</b> 9</span></td><td class="name">DECFI</td><td class="disp"><code>ForwardIndex()</code></td></tr>
+      <tr><td><span class="seq"><b>ESC</b> =</span></td><td class="name">DECKPAM</td><td class="disp"><code>SetKeypadMode(true)</code></td></tr>
+      <tr><td><span class="seq"><b>ESC</b> &gt;</span></td><td class="name">DECKPNM</td><td class="disp"><code>SetKeypadMode(false)</code></td></tr>
+      <tr><td><span class="seq"><b>ESC</b> D</span></td><td class="name">IND</td><td class="disp"><code>LineFeed(WithoutReturn)</code></td></tr>
+      <tr><td><span class="seq"><b>ESC</b> E</span></td><td class="name">NEL</td><td class="disp"><code>LineFeed(WithReturn)</code></td></tr>
+      <tr><td><span class="seq"><b>ESC</b> H</span></td><td class="name">HTS</td><td class="disp"><code>HorizontalTabSet()</code></td></tr>
+      <tr><td><span class="seq"><b>ESC</b> M</span></td><td class="name">RI</td><td class="disp"><code>ReverseLineFeed()</code></td></tr>
+      <tr><td><span class="seq"><b>ESC</b> N</span></td><td class="name">SS2</td><td class="disp"><code>SingleShift(2)</code></td></tr>
+      <tr><td><span class="seq"><b>ESC</b> O</span></td><td class="name">SS3</td><td class="disp"><code>SingleShift(3)</code></td></tr>
+      <tr><td><span class="seq"><b>ESC</b> Z</span></td><td class="name">DECID</td><td class="disp"><code>DeviceAttributes()</code> (replies like DA1)</td></tr>
+      <tr><td><span class="seq"><b>ESC</b> \</span></td><td class="name">ST</td><td class="disp">string terminator (no-op)</td></tr>
+      <tr><td><span class="seq"><b>ESC</b> c</span></td><td class="name">RIS</td><td class="disp"><code>HardReset(true)</code></td></tr>
+      <tr><td><span class="seq"><b>ESC</b> n</span></td><td class="name">LS2</td><td class="disp"><code>LockingShift(2)</code></td></tr>
+      <tr><td><span class="seq"><b>ESC</b> o</span></td><td class="name">LS3</td><td class="disp"><code>LockingShift(3)</code></td></tr>
+      <tr><td><span class="seq"><b>ESC</b> ~</span></td><td class="name">LS1R</td><td class="disp"><code>LockingShiftRight(1)</code></td></tr>
+      <tr><td><span class="seq"><b>ESC</b> }</span></td><td class="name">LS2R</td><td class="disp"><code>LockingShiftRight(2)</code></td></tr>
+      <tr><td><span class="seq"><b>ESC</b> |</span></td><td class="name">LS3R</td><td class="disp"><code>LockingShiftRight(3)</code></td></tr>
+      <tr><td><span class="seq"><b>ESC</b> SP 7</span></td><td class="name">DECAC1</td><td class="disp"><code>AcceptC1Controls(true)</code></td></tr>
+      <tr><td><span class="seq"><b>ESC</b> SP F</span></td><td class="name">S7C1T</td><td class="disp"><code>SendC1Controls(false)</code></td></tr>
+      <tr><td><span class="seq"><b>ESC</b> SP G</span></td><td class="name">S8C1T</td><td class="disp"><code>SendC1Controls(true)</code></td></tr>
+      <tr><td><span class="seq"><b>ESC</b> SP L</span></td><td class="name">ACS</td><td class="disp"><code>AnnounceCodeStructure(1)</code></td></tr>
+      <tr><td><span class="seq"><b>ESC</b> SP M</span></td><td class="name">ACS</td><td class="disp"><code>AnnounceCodeStructure(2)</code></td></tr>
+      <tr><td><span class="seq"><b>ESC</b> SP N</span></td><td class="name">ACS</td><td class="disp"><code>AnnounceCodeStructure(3)</code></td></tr>
+      <tr><td><span class="seq"><b>ESC</b> # 3</span></td><td class="name">DECDHL</td><td class="disp"><code>SetLineRendition(DoubleHeightTop)</code></td></tr>
+      <tr><td><span class="seq"><b>ESC</b> # 4</span></td><td class="name">DECDHL</td><td class="disp"><code>SetLineRendition(DoubleHeightBottom)</code></td></tr>
+      <tr><td><span class="seq"><b>ESC</b> # 5</span></td><td class="name">DECSWL</td><td class="disp"><code>SetLineRendition(SingleWidth)</code></td></tr>
+      <tr><td><span class="seq"><b>ESC</b> # 6</span></td><td class="name">DECDWL</td><td class="disp"><code>SetLineRendition(DoubleWidth)</code></td></tr>
+      <tr><td><span class="seq"><b>ESC</b> # 8</span></td><td class="name">DECALN</td><td class="disp"><code>ScreenAlignmentPattern()</code></td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>Character-set designation <a class="anchor" href="#esc">#</a></h3>
+  <p class="muted">Default branch of <code>ActionEscDispatch</code>: <code>ESC</code> + intermediate + a final "charset" byte. G-set final bytes live in <code>DispatchTypes::CharacterSets</code> (<code>ASCII = "B"</code>, <code>DecSpecialGraphics = "0"</code>).</p>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Bytes</th><th class="disp">Dispatch</th></tr></thead>
+    <tbody>
+      <tr><td><span class="seq"><b>ESC</b> % &lt;F&gt;</span></td><td class="disp"><code>DesignateCodingSystem(F)</code> — DOCS; <code>ESC % @</code> = ISO-2022, <code>ESC % G</code> = UTF-8</td></tr>
+      <tr><td><span class="seq"><b>ESC</b> ( &lt;F&gt;</span></td><td class="disp"><code>Designate94Charset(0, F)</code> — G0</td></tr>
+      <tr><td><span class="seq"><b>ESC</b> ) &lt;F&gt;</span></td><td class="disp"><code>Designate94Charset(1, F)</code> — G1</td></tr>
+      <tr><td><span class="seq"><b>ESC</b> * &lt;F&gt;</span></td><td class="disp"><code>Designate94Charset(2, F)</code> — G2</td></tr>
+      <tr><td><span class="seq"><b>ESC</b> + &lt;F&gt;</span></td><td class="disp"><code>Designate94Charset(3, F)</code> — G3</td></tr>
+      <tr><td><span class="seq"><b>ESC</b> - &lt;F&gt;</span></td><td class="disp"><code>Designate96Charset(1, F)</code> — G1</td></tr>
+      <tr><td><span class="seq"><b>ESC</b> . &lt;F&gt;</span></td><td class="disp"><code>Designate96Charset(2, F)</code> — G2</td></tr>
+      <tr><td><span class="seq"><b>ESC</b> / &lt;F&gt;</span></td><td class="disp"><code>Designate96Charset(3, F)</code> — G3</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- ===================== §3 CSI ===================== -->
+<section id="csi">
+  <h2><span class="num">§3</span> CSI sequences <a class="anchor" href="#csi">#</a></h2>
+  <p class="lead-files"><code>CsiActionCodes</code> / <code>ActionCsiDispatch</code>. <code>CSI</code> + optional prefix/intermediate bytes + parameters + final byte. "Default" is the value passed to the handler when the parameter is omitted.</p>
+
+  <h3>Cursor movement &amp; position <a class="anchor" href="#csi">#</a></h3>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Bytes</th><th>Name</th><th class="disp">Dispatch</th><th>Default</th></tr></thead>
+    <tbody>
+      <tr><td><span class="seq"><b>CSI</b> Pn A</span></td><td class="name">CUU</td><td class="disp"><code>CursorUp</code></td><td>1</td></tr>
+      <tr><td><span class="seq"><b>CSI</b> Pn B</span></td><td class="name">CUD</td><td class="disp"><code>CursorDown</code></td><td>1</td></tr>
+      <tr><td><span class="seq"><b>CSI</b> Pn C</span></td><td class="name">CUF</td><td class="disp"><code>CursorForward</code></td><td>1</td></tr>
+      <tr><td><span class="seq"><b>CSI</b> Pn D</span></td><td class="name">CUB</td><td class="disp"><code>CursorBackward</code></td><td>1</td></tr>
+      <tr><td><span class="seq"><b>CSI</b> Pn E</span></td><td class="name">CNL</td><td class="disp"><code>CursorNextLine</code></td><td>1</td></tr>
+      <tr><td><span class="seq"><b>CSI</b> Pn F</span></td><td class="name">CPL</td><td class="disp"><code>CursorPrevLine</code></td><td>1</td></tr>
+      <tr><td><span class="seq"><b>CSI</b> Pn G</span> / <span class="seq"><b>CSI</b> Pn `</span></td><td class="name">CHA / HPA</td><td class="disp"><code>CursorHorizontalPositionAbsolute</code></td><td>col 1</td></tr>
+      <tr><td><span class="seq"><b>CSI</b> Pn d</span></td><td class="name">VPA</td><td class="disp"><code>VerticalLinePositionAbsolute</code></td><td>row 1</td></tr>
+      <tr><td><span class="seq"><b>CSI</b> Pn a</span></td><td class="name">HPR</td><td class="disp"><code>HorizontalPositionRelative</code></td><td>1</td></tr>
+      <tr><td><span class="seq"><b>CSI</b> Pn e</span></td><td class="name">VPR</td><td class="disp"><code>VerticalPositionRelative</code></td><td>1</td></tr>
+      <tr><td><span class="seq"><b>CSI</b> Pl;Pc H</span> / <span class="seq"><b>CSI</b> Pl;Pc f</span></td><td class="name">CUP / HVP</td><td class="disp"><code>CursorPosition</code></td><td>row 1, col 1</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>Editing <a class="anchor" href="#csi">#</a></h3>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Bytes</th><th>Name</th><th class="disp">Dispatch</th><th>Default</th></tr></thead>
+    <tbody>
+      <tr><td><span class="seq"><b>CSI</b> Pn @</span></td><td class="name">ICH</td><td class="disp"><code>InsertCharacter</code></td><td>1</td></tr>
+      <tr><td><span class="seq"><b>CSI</b> Pn P</span></td><td class="name">DCH</td><td class="disp"><code>DeleteCharacter</code></td><td>1</td></tr>
+      <tr><td><span class="seq"><b>CSI</b> Pn X</span></td><td class="name">ECH</td><td class="disp"><code>EraseCharacters</code></td><td>1</td></tr>
+      <tr><td><span class="seq"><b>CSI</b> Pn L</span></td><td class="name">IL</td><td class="disp"><code>InsertLine</code></td><td>1</td></tr>
+      <tr><td><span class="seq"><b>CSI</b> Pn M</span></td><td class="name">DL</td><td class="disp"><code>DeleteLine</code></td><td>1</td></tr>
+      <tr><td><span class="seq"><b>CSI</b> Ps J</span></td><td class="name">ED</td><td class="disp"><code>EraseInDisplay</code> (per param)</td><td>type 0</td></tr>
+      <tr><td><span class="seq"><b>CSI</b> ? Ps J</span></td><td class="name">DECSED</td><td class="disp"><code>SelectiveEraseInDisplay</code></td><td>type 0</td></tr>
+      <tr><td><span class="seq"><b>CSI</b> Ps K</span></td><td class="name">EL</td><td class="disp"><code>EraseInLine</code></td><td>type 0</td></tr>
+      <tr><td><span class="seq"><b>CSI</b> ? Ps K</span></td><td class="name">DECSEL</td><td class="disp"><code>SelectiveEraseInLine</code></td><td>type 0</td></tr>
+      <tr><td><span class="seq"><b>CSI</b> Pn S</span></td><td class="name">SU</td><td class="disp"><code>ScrollUp</code></td><td>1</td></tr>
+      <tr><td><span class="seq"><b>CSI</b> Pn T</span></td><td class="name">SD</td><td class="disp"><code>ScrollDown</code></td><td>1</td></tr>
+      <tr><td><span class="seq"><b>CSI</b> Pn b</span></td><td class="name">REP</td><td class="disp">repeat last printed glyph ×Pn (handled in engine)</td><td>1</td></tr>
+    </tbody>
+  </table></div>
+  <p class="muted"><code>EraseType</code>: <code>0</code> ToEnd · <code>1</code> FromBeginning · <code>2</code> All · <code>3</code> Scrollback.</p>
+
+  <h3>Tabs <a class="anchor" href="#csi">#</a></h3>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Bytes</th><th>Name</th><th class="disp">Dispatch</th><th>Default</th></tr></thead>
+    <tbody>
+      <tr><td><span class="seq"><b>CSI</b> Pn I</span></td><td class="name">CHT</td><td class="disp"><code>ForwardTab</code></td><td>1</td></tr>
+      <tr><td><span class="seq"><b>CSI</b> Pn Z</span></td><td class="name">CBT</td><td class="disp"><code>BackwardsTab</code></td><td>1</td></tr>
+      <tr><td><span class="seq"><b>CSI</b> Ps g</span></td><td class="name">TBC</td><td class="disp"><code>TabClear</code> (per param)</td><td>type 0</td></tr>
+      <tr><td><span class="seq"><b>CSI</b> ? Ps W</span></td><td class="name">DECST8C</td><td class="disp"><code>TabSet</code> (per param)</td><td>—</td></tr>
+    </tbody>
+  </table></div>
+  <p class="muted"><code>TabClearType</code>: <code>0</code> ClearCurrentColumn · <code>3</code> ClearAllColumns. <code>TabSetType</code>: <code>5</code> SetEvery8Columns (the only accepted value).</p>
+
+  <h3>Pages <a class="anchor" href="#csi">#</a></h3>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Bytes</th><th>Name</th><th class="disp">Dispatch</th><th>Default</th></tr></thead>
+    <tbody>
+      <tr><td><span class="seq"><b>CSI</b> Pn U</span></td><td class="name">NP</td><td class="disp"><code>NextPage</code></td><td>1</td></tr>
+      <tr><td><span class="seq"><b>CSI</b> Pn V</span></td><td class="name">PP</td><td class="disp"><code>PrecedingPage</code></td><td>1</td></tr>
+      <tr><td><span class="seq"><b>CSI</b> Pn SP P</span></td><td class="name">PPA</td><td class="disp"><code>PagePositionAbsolute</code></td><td>1</td></tr>
+      <tr><td><span class="seq"><b>CSI</b> Pn SP Q</span></td><td class="name">PPR</td><td class="disp"><code>PagePositionRelative</code></td><td>1</td></tr>
+      <tr><td><span class="seq"><b>CSI</b> Pn SP R</span></td><td class="name">PPB</td><td class="disp"><code>PagePositionBack</code></td><td>1</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>Margins, save/restore, window <a class="anchor" href="#csi">#</a></h3>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Bytes</th><th>Name</th><th class="disp">Dispatch</th><th>Default</th></tr></thead>
+    <tbody>
+      <tr><td><span class="seq"><b>CSI</b> Pt;Pb r</span></td><td class="name">DECSTBM</td><td class="disp"><code>SetTopBottomScrollingMargins(value_or(0), value_or(0))</code></td><td>0 = full screen</td></tr>
+      <tr><td><span class="seq"><b>CSI</b> Pl;Pr s</span></td><td class="name">DECSLRM</td><td class="disp"><code>SetLeftRightScrollingMargins(value_or(0), value_or(0))</code></td><td>0 = full width</td></tr>
+      <tr><td><span class="seq"><b>CSI</b> u</span></td><td class="name">ANSISYSRC</td><td class="disp"><code>CursorRestoreState()</code></td><td>—</td></tr>
+      <tr><td><span class="seq"><b>CSI</b> Ps;Pa;Pb t</span></td><td class="name">DTTERM / XTWINOPS</td><td class="disp"><code>WindowManipulation(func, p1, p2)</code></td><td>—</td></tr>
+    </tbody>
+  </table></div>
+  <div class="callout">
+    <p><code>CSI s</code> is overloaded: it is DECSLRM, but acts as ANSI.SYS save-cursor (ANSISYSSC) when left/right-margin mode (DECLRMM, <code>?69</code>) is off.</p>
+    <p><code>CSI t</code> (<code>DTTERM_WindowManipulation</code>) overlaps DECSLPP per a source comment. <code>WindowManipulationType</code>: <code>1</code> DeIconifyWindow · <code>2</code> IconifyWindow · <code>7</code> RefreshWindow · <code>8</code> ResizeWindowInCharacters · <code>14</code> ReportTextSizeInPixels · <code>16</code> ReportCharacterCellSize · <code>18</code> ReportTextSizeInCharacters.</p>
+  </div>
+
+  <h3>Rendition <a class="anchor" href="#csi">#</a></h3>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Bytes</th><th>Name</th><th class="disp">Dispatch</th><th>Default</th></tr></thead>
+    <tbody>
+      <tr><td><span class="seq"><b>CSI</b> Ps;… m</span></td><td class="name">SGR</td><td class="disp"><code>SetGraphicsRendition(params)</code> — see §7</td><td>0</td></tr>
+      <tr><td><span class="seq"><b>CSI</b> Ps " q</span></td><td class="name">DECSCA</td><td class="disp"><code>SetCharacterProtectionAttribute(params)</code></td><td>0</td></tr>
+      <tr><td><span class="seq"><b>CSI</b> Ps SP q</span></td><td class="name">DECSCUSR</td><td class="disp"><code>SetCursorStyle</code></td><td>style 0</td></tr>
+      <tr><td><span class="seq"><b>CSI</b> # p</span> / <span class="seq"><b>CSI</b> # {</span></td><td class="name">XTPUSHSGR</td><td class="disp"><code>PushGraphicsRendition(params)</code></td><td>—</td></tr>
+      <tr><td><span class="seq"><b>CSI</b> # q</span> / <span class="seq"><b>CSI</b> # }</span></td><td class="name">XTPOPSGR</td><td class="disp"><code>PopGraphicsRendition()</code></td><td>—</td></tr>
+    </tbody>
+  </table></div>
+  <p class="muted"><code>CursorStyle</code> (DECSCUSR): <code>0</code> UserDefault (= blinking block) · <code>1</code> BlinkingBlock · <code>2</code> SteadyBlock · <code>3</code> BlinkingUnderline · <code>4</code> SteadyUnderline · <code>5</code> BlinkingBar · <code>6</code> SteadyBar.</p>
+
+  <h3>Modes <a class="anchor" href="#csi">#</a></h3>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Bytes</th><th>Name</th><th class="disp">Dispatch</th></tr></thead>
+    <tbody>
+      <tr><td><span class="seq"><b>CSI</b> Ps h</span></td><td class="name">SM</td><td class="disp"><code>SetMode(ANSIStandardMode(Ps))</code> per param</td></tr>
+      <tr><td><span class="seq"><b>CSI</b> Ps l</span></td><td class="name">RM</td><td class="disp"><code>ResetMode(ANSIStandardMode(Ps))</code> per param</td></tr>
+      <tr><td><span class="seq"><b>CSI</b> ? Ps h</span></td><td class="name">DECSET</td><td class="disp"><code>SetMode(DECPrivateMode(Ps))</code> per param</td></tr>
+      <tr><td><span class="seq"><b>CSI</b> ? Ps l</span></td><td class="name">DECRST</td><td class="disp"><code>ResetMode(DECPrivateMode(Ps))</code> per param</td></tr>
+      <tr><td><span class="seq"><b>CSI</b> Ps $ p</span></td><td class="name">DECRQM</td><td class="disp"><code>RequestMode(ANSIStandardMode(Ps))</code></td></tr>
+      <tr><td><span class="seq"><b>CSI</b> ? Ps $ p</span></td><td class="name">DECRQM</td><td class="disp"><code>RequestMode(DECPrivateMode(Ps))</code></td></tr>
+    </tbody>
+  </table></div>
+  <p class="muted">Mode numbers in §8. <code>RequestMode</code> replies with a DECRPM report (§9c).</p>
+
+  <h3>Reports / device attributes <span class="muted">(the replies are in §9)</span> <a class="anchor" href="#csi">#</a></h3>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Bytes</th><th>Name</th><th class="disp">Dispatch</th></tr></thead>
+    <tbody>
+      <tr><td><span class="seq"><b>CSI</b> Ps n</span></td><td class="name">DSR</td><td class="disp"><code>DeviceStatusReport(ANSIStandardStatus(Ps), id)</code></td></tr>
+      <tr><td><span class="seq"><b>CSI</b> ? Ps n</span></td><td class="name">DSR</td><td class="disp"><code>DeviceStatusReport(DECPrivateStatus(Ps), id)</code></td></tr>
+      <tr><td><span class="seq"><b>CSI</b> Ps c</span></td><td class="name">DA1</td><td class="disp"><code>DeviceAttributes()</code> (only when Ps is 0/omitted)</td></tr>
+      <tr><td><span class="seq"><b>CSI</b> &gt; Ps c</span></td><td class="name">DA2</td><td class="disp"><code>SecondaryDeviceAttributes()</code> (Ps 0/omitted)</td></tr>
+      <tr><td><span class="seq"><b>CSI</b> = Ps c</span></td><td class="name">DA3</td><td class="disp"><code>TertiaryDeviceAttributes()</code> (Ps 0/omitted)</td></tr>
+      <tr><td><span class="seq"><b>CSI</b> Ps x</span></td><td class="name">DECREQTPARM</td><td class="disp"><code>RequestTerminalParameters(Ps)</code></td></tr>
+    </tbody>
+  </table></div>
+  <p class="muted"><code>StatusType</code> (DSR) — <code>ANSIStandardStatus</code> (no <code>?</code>): <code>5</code> OperatingStatus · <code>6</code> CursorPositionReport. <code>DECPrivateStatus</code> (<code>?</code>): <code>6</code> ExtendedCursorPositionReport (DECXCPR) · <code>15</code> PrinterStatus · <code>25</code> UserDefinedKeys · <code>26</code> KeyboardStatus · <code>55</code> LocatorStatus · <code>56</code> LocatorIdentity · <code>62</code> MacroSpaceReport · <code>63</code> MemoryChecksum · <code>75</code> DataIntegrity · <code>85</code> MultipleSessionStatus.</p>
+
+  <h3>Resets <a class="anchor" href="#csi">#</a></h3>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Bytes</th><th>Name</th><th class="disp">Dispatch</th></tr></thead>
+    <tbody>
+      <tr><td><span class="seq"><b>CSI</b> ! p</span></td><td class="name">DECSTR</td><td class="disp"><code>SoftReset()</code></td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>Rectangular-area &amp; state operations <a class="anchor" href="#csi">#</a></h3>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Bytes</th><th>Name</th><th class="disp">Dispatch</th><th>Coord defaults</th></tr></thead>
+    <tbody>
+      <tr><td><span class="seq"><b>CSI</b> Pt;Pl;Pb;Pr;Ps… $ r</span></td><td class="name">DECCARA</td><td class="disp"><code>ChangeAttributesRectangularArea(p0,p1, value_or(0), value_or(0), attrs=subspan(4))</code></td><td>b/r 0 = edge</td></tr>
+      <tr><td><span class="seq"><b>CSI</b> Pt;Pl;Pb;Pr;Ps… $ t</span></td><td class="name">DECRARA</td><td class="disp"><code>ReverseAttributesRectangularArea(p0,p1, value_or(0), value_or(0), attrs)</code></td><td>b/r 0 = edge</td></tr>
+      <tr><td><span class="seq"><b>CSI</b> …;Pp;… $ v</span></td><td class="name">DECCRA</td><td class="disp"><code>CopyRectangularArea(p0,p1, value_or(0), value_or(0), p4,p5,p6,p7)</code></td><td>b/r 0 = edge</td></tr>
+      <tr><td><span class="seq"><b>CSI</b> Pch;Pt;Pl;Pb;Pr $ x</span></td><td class="name">DECFRA</td><td class="disp"><code>FillRectangularArea(ch, top, left, value_or(0), value_or(0))</code></td><td>b/r 0 = edge</td></tr>
+      <tr><td><span class="seq"><b>CSI</b> Pt;Pl;Pb;Pr $ z</span></td><td class="name">DECERA</td><td class="disp"><code>EraseRectangularArea(p0,p1, value_or(0), value_or(0))</code></td><td>b/r 0 = edge</td></tr>
+      <tr><td><span class="seq"><b>CSI</b> Pt;Pl;Pb;Pr $ {</span></td><td class="name">DECSERA</td><td class="disp"><code>SelectiveEraseRectangularArea(p0,p1, value_or(0), value_or(0))</code></td><td>b/r 0 = edge</td></tr>
+      <tr><td><span class="seq"><b>CSI</b> Ps * x</span></td><td class="name">DECSACE</td><td class="disp"><code>SelectAttributeChangeExtent(Ps)</code></td><td>extent 0</td></tr>
+      <tr><td><span class="seq"><b>CSI</b> Pid;Pp;Pt;Pl;Pb;Pr * y</span></td><td class="name">DECRQCRA</td><td class="disp"><code>RequestChecksumRectangularArea(value_or(0), value_or(0), p2,p3, value_or(0), value_or(0))</code></td><td>—</td></tr>
+      <tr><td><span class="seq"><b>CSI</b> " v</span></td><td class="name">DECRQDE</td><td class="disp"><code>RequestDisplayedExtent()</code></td><td>—</td></tr>
+      <tr><td><span class="seq"><b>CSI</b> Pf;Pl $ w</span></td><td class="name">DECRQPSR</td><td class="disp"><code>RequestPresentationStateReport(Pf)</code></td><td>—</td></tr>
+      <tr><td><span class="seq"><b>CSI</b> Pf;Po $ u</span></td><td class="name">DECRQTSR</td><td class="disp"><code>RequestTerminalStateReport(Pf, Po)</code></td><td>—</td></tr>
+      <tr><td><span class="seq"><b>CSI</b> Pn ' }</span></td><td class="name">DECIC</td><td class="disp"><code>InsertColumn</code></td><td>1</td></tr>
+      <tr><td><span class="seq"><b>CSI</b> Pn ' ~</span></td><td class="name">DECDC</td><td class="disp"><code>DeleteColumn</code></td><td>1</td></tr>
+      <tr><td><span class="seq"><b>CSI</b> &amp; u</span></td><td class="name">DECRQUPSS</td><td class="disp"><code>RequestUserPreferenceCharset()</code></td><td>—</td></tr>
+      <tr><td><span class="seq"><b>CSI</b> Pid * z</span></td><td class="name">DECINVM</td><td class="disp"><code>InvokeMacro(value_or(0))</code></td><td>macro 0</td></tr>
+      <tr><td><span class="seq"><b>CSI</b> Pitem;Pfg;Pbg , |</span></td><td class="name">DECAC</td><td class="disp"><code>AssignColor(item, value_or(0), value_or(0))</code></td><td>—</td></tr>
+      <tr><td><span class="seq"><b>CSI</b> Ps;Pvol;… , ~</span></td><td class="name">DECPS</td><td class="disp"><code>PlaySounds(params)</code></td><td>—</td></tr>
+    </tbody>
+  </table></div>
+  <p class="muted"><code>ColorItem</code> (DECAC): <code>1</code> NormalText · <code>2</code> WindowFrame. <code>ChangeExtent</code> (DECSACE): <code>0</code> Default · <code>1</code> Stream · <code>2</code> Rectangle.</p>
+
+  <h3>Kitty keyboard protocol <a class="anchor" href="#csi">#</a></h3>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Bytes</th><th>Name</th><th class="disp">Dispatch</th></tr></thead>
+    <tbody>
+      <tr><td><span class="seq"><b>CSI</b> Pflags;Pmode = u</span></td><td class="name">KKP set</td><td class="disp"><code>SetKittyKeyboardProtocol(flags, mode)</code> (mode default 1)</td></tr>
+      <tr><td><span class="seq"><b>CSI</b> ? u</span></td><td class="name">KKP query</td><td class="disp"><code>QueryKittyKeyboardProtocol()</code></td></tr>
+      <tr><td><span class="seq"><b>CSI</b> Pflags &gt; u</span></td><td class="name">KKP push</td><td class="disp"><code>PushKittyKeyboardProtocol(flags)</code></td></tr>
+      <tr><td><span class="seq"><b>CSI</b> Pn &lt; u</span></td><td class="name">KKP pop</td><td class="disp"><code>PopKittyKeyboardProtocol(count)</code> (default 1)</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="callout warn">
+    <p><strong>Defined but not dispatched.</strong> <code>DECSCPP_SetColumnsPerPage = "$|"</code> exists in <code>CsiActionCodes</code> but has no case in <code>ActionCsiDispatch</code>, so <code>CSI Pn $ |</code> currently falls through to <code>UnknownSequence()</code> — effectively unsupported.</p>
+  </div>
+</section>
+
+<!-- ===================== §4 DCS ===================== -->
+<section id="dcs">
+  <h2><span class="num">§4</span> DCS sequences <a class="anchor" href="#dcs">#</a></h2>
+  <p class="lead-files"><code>ESC P</code> … <code>ST</code>. <code>DcsActionCodes</code> / <code>ActionDcsDispatch</code>.</p>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Bytes</th><th>Name</th><th class="disp">Dispatch</th></tr></thead>
+    <tbody>
+      <tr><td><span class="seq"><b>DCS</b> Pa;Pb;Ph q …</span></td><td class="name">SIXEL</td><td class="disp"><code>DefineSixelImage(p0, p1, p2)</code></td></tr>
+      <tr><td><span class="seq"><b>DCS</b> …;… { …</span></td><td class="name">DECDLD</td><td class="disp"><code>DownloadDRCS(p0…p7)</code> — soft font</td></tr>
+      <tr><td><span class="seq"><b>DCS</b> Ps ! u</span></td><td class="name">DECAUPSS</td><td class="disp"><code>AssignUserPreferenceCharset(p0)</code></td></tr>
+      <tr><td><span class="seq"><b>DCS</b> Pid;Pdc;Pe ! z …</span></td><td class="name">DECDMAC</td><td class="disp"><code>DefineMacro(value_or(0), p1, p2)</code></td></tr>
+      <tr><td><span class="seq"><b>DCS</b> Pf $ p …</span></td><td class="name">DECRSTS</td><td class="disp"><code>RestoreTerminalState(p0)</code></td></tr>
+      <tr><td><span class="seq"><b>DCS</b> $ q …</span></td><td class="name">DECRQSS</td><td class="disp"><code>RequestSetting()</code> — reply in §9d</td></tr>
+      <tr><td><span class="seq"><b>DCS</b> Pf $ t …</span></td><td class="name">DECRSPS</td><td class="disp"><code>RestorePresentationState(p0)</code></td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- ===================== §5 OSC ===================== -->
+<section id="osc">
+  <h2><span class="num">§5</span> OSC sequences <a class="anchor" href="#osc">#</a></h2>
+  <p class="lead-files"><code>ESC ]</code> Ps <code>;</code> Pt <code>ST</code>/<code>BEL</code>. <code>OscActionCodes</code> / <code>ActionOscDispatch</code>.</p>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Ps</th><th>Name</th><th class="disp">Dispatch</th></tr></thead>
+    <tbody>
+      <tr><td><span class="seq"><b>OSC</b> 0</span></td><td class="name">SetIconAndWindowTitle</td><td class="disp"><code>SetWindowTitle</code></td></tr>
+      <tr><td><span class="seq"><b>OSC</b> 1</span></td><td class="name">SetWindowIcon</td><td class="disp"><code>SetWindowTitle</code> (same handler)</td></tr>
+      <tr><td><span class="seq"><b>OSC</b> 2</span></td><td class="name">SetWindowTitle</td><td class="disp"><code>SetWindowTitle</code></td></tr>
+      <tr><td><span class="seq"><b>OSC</b> 3</span></td><td class="name">SetWindowProperty</td><td class="disp"><span class="pill na">not implemented</span></td></tr>
+      <tr><td><span class="seq"><b>OSC</b> 4</span></td><td class="name">SetColor</td><td class="disp"><code>SetColorTableEntry</code> / <code>RequestColorTableEntry</code> (<code>?</code> = query)</td></tr>
+      <tr><td><span class="seq"><b>OSC</b> 7</span></td><td class="name">CurrentWorkingDirectory</td><td class="disp"><code>SetCurrentWorkingDirectory</code></td></tr>
+      <tr><td><span class="seq"><b>OSC</b> 8</span></td><td class="name">Hyperlink</td><td class="disp"><code>AddHyperlink</code> / <code>EndHyperlink</code></td></tr>
+      <tr><td><span class="seq"><b>OSC</b> 9</span></td><td class="name">ConEmuAction</td><td class="disp"><code>DoConEmuAction</code></td></tr>
+      <tr><td><span class="seq"><b>OSC</b> 10</span></td><td class="name">SetForegroundColor</td><td class="disp"><code>SetXtermColorResource</code> / <code>RequestXtermColorResource</code></td></tr>
+      <tr><td><span class="seq"><b>OSC</b> 11</span></td><td class="name">SetBackgroundColor</td><td class="disp">same family</td></tr>
+      <tr><td><span class="seq"><b>OSC</b> 12</span></td><td class="name">SetCursorColor</td><td class="disp">same family</td></tr>
+      <tr><td><span class="seq"><b>OSC</b> 17</span></td><td class="name">SetHighlightColor</td><td class="disp">same family</td></tr>
+      <tr><td><span class="seq"><b>OSC</b> 21</span></td><td class="name">DECSWT_SetWindowTitle</td><td class="disp"><code>SetWindowTitle</code></td></tr>
+      <tr><td><span class="seq"><b>OSC</b> 52</span></td><td class="name">SetClipboard</td><td class="disp"><code>SetClipboard</code> (<code>?</code> = query — but see §9h)</td></tr>
+      <tr><td><span class="seq"><b>OSC</b> 104</span></td><td class="name">ResetColor</td><td class="disp"><code>ResetColorTable</code> / <code>ResetColorTableEntry</code></td></tr>
+      <tr><td><span class="seq"><b>OSC</b> 110</span></td><td class="name">ResetForegroundColor</td><td class="disp"><code>ResetXtermColorResource(Ps-100)</code></td></tr>
+      <tr><td><span class="seq"><b>OSC</b> 111</span></td><td class="name">ResetBackgroundColor</td><td class="disp">same</td></tr>
+      <tr><td><span class="seq"><b>OSC</b> 112</span></td><td class="name">ResetCursorColor</td><td class="disp">same</td></tr>
+      <tr><td><span class="seq"><b>OSC</b> 117</span></td><td class="name">ResetHighlightColor</td><td class="disp">same</td></tr>
+      <tr><td><span class="seq"><b>OSC</b> 133</span></td><td class="name">FinalTermAction</td><td class="disp"><code>DoFinalTermAction</code> (shell-integration marks)</td></tr>
+      <tr><td><span class="seq"><b>OSC</b> 633</span></td><td class="name">VsCodeAction</td><td class="disp"><code>DoVsCodeAction</code></td></tr>
+      <tr><td><span class="seq"><b>OSC</b> 1337</span></td><td class="name">ITerm2Action</td><td class="disp"><code>DoITerm2Action</code></td></tr>
+      <tr><td><span class="seq"><b>OSC</b> 9001</span></td><td class="name">WTAction</td><td class="disp"><code>DoWTAction</code></td></tr>
+    </tbody>
+  </table></div>
+  <p class="muted"><code>OSC 10/11/12/17</code> share a handler; multiple <code>;</code>-separated specs apply to successive resources. <code>OSC 4</code> / <code>OSC 10-12</code> accept <code>?</code> to query the current color (reply in §9h).</p>
+</section>
+
+<!-- ===================== §6 VT52 ===================== -->
+<section id="vt52">
+  <h2><span class="num">§6</span> VT52 sequences <a class="anchor" href="#vt52">#</a></h2>
+  <p class="lead-files"><code>Vt52ActionCodes</code> / <code>ActionVt52EscDispatch</code>. Active only in VT52 mode (after DECANM is reset).</p>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Bytes</th><th>Name</th><th class="disp">Dispatch</th></tr></thead>
+    <tbody>
+      <tr><td><span class="seq"><b>ESC</b> A</span></td><td class="name">CursorUp</td><td class="disp"><code>CursorUp(1)</code></td></tr>
+      <tr><td><span class="seq"><b>ESC</b> B</span></td><td class="name">CursorDown</td><td class="disp"><code>CursorDown(1)</code></td></tr>
+      <tr><td><span class="seq"><b>ESC</b> C</span></td><td class="name">CursorRight</td><td class="disp"><code>CursorForward(1)</code></td></tr>
+      <tr><td><span class="seq"><b>ESC</b> D</span></td><td class="name">CursorLeft</td><td class="disp"><code>CursorBackward(1)</code></td></tr>
+      <tr><td><span class="seq"><b>ESC</b> F</span></td><td class="name">EnterGraphicsMode</td><td class="disp"><code>Designate94Charset(0, DecSpecialGraphics)</code></td></tr>
+      <tr><td><span class="seq"><b>ESC</b> G</span></td><td class="name">ExitGraphicsMode</td><td class="disp"><code>Designate94Charset(0, ASCII)</code></td></tr>
+      <tr><td><span class="seq"><b>ESC</b> H</span></td><td class="name">CursorToHome</td><td class="disp"><code>CursorPosition(1, 1)</code></td></tr>
+      <tr><td><span class="seq"><b>ESC</b> I</span></td><td class="name">ReverseLineFeed</td><td class="disp"><code>ReverseLineFeed()</code></td></tr>
+      <tr><td><span class="seq"><b>ESC</b> J</span></td><td class="name">EraseToEndOfScreen</td><td class="disp"><code>EraseInDisplay(ToEnd)</code></td></tr>
+      <tr><td><span class="seq"><b>ESC</b> K</span></td><td class="name">EraseToEndOfLine</td><td class="disp"><code>EraseInLine(ToEnd)</code></td></tr>
+      <tr><td><span class="seq"><b>ESC</b> Y &lt;r&gt;&lt;c&gt;</span></td><td class="name">DirectCursorAddress</td><td class="disp"><code>CursorPosition(r-' '+1, c-' '+1)</code></td></tr>
+      <tr><td><span class="seq"><b>ESC</b> Z</span></td><td class="name">Identify</td><td class="disp"><code>Vt52DeviceAttributes()</code></td></tr>
+      <tr><td><span class="seq"><b>ESC</b> =</span></td><td class="name">EnterAlternateKeypadMode</td><td class="disp"><code>SetKeypadMode(true)</code></td></tr>
+      <tr><td><span class="seq"><b>ESC</b> &gt;</span></td><td class="name">ExitAlternateKeypadMode</td><td class="disp"><code>SetKeypadMode(false)</code></td></tr>
+      <tr><td><span class="seq"><b>ESC</b> &lt;</span></td><td class="name">ExitVt52Mode</td><td class="disp"><code>SetMode(DECANM)</code></td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- ===================== §7 SGR ===================== -->
+<section id="sgr">
+  <h2><span class="num">§7</span> SGR parameters <span class="muted nowrap">(CSI … m)</span> <a class="anchor" href="#sgr">#</a></h2>
+  <p class="lead-files"><code>GraphicsOptions</code>. No params ⇒ a single default <code>0</code> (reset).</p>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Ps</th><th class="disp">Effect</th></tr></thead>
+    <tbody>
+      <tr><td><code>0</code></td><td class="disp">Reset all attributes</td></tr>
+      <tr><td><code>1</code></td><td class="disp">Intense (bold)</td></tr>
+      <tr><td><code>2</code></td><td class="disp">Faint</td></tr>
+      <tr><td><code>3</code></td><td class="disp">Italics</td></tr>
+      <tr><td><code>4</code></td><td class="disp">Underline (singly)</td></tr>
+      <tr><td><code>5</code></td><td class="disp">Blink <span class="muted">(<code>BlinkOrXterm256Index</code>)</span></td></tr>
+      <tr><td><code>6</code></td><td class="disp">Rapid blink (→ blink)</td></tr>
+      <tr><td><code>7</code></td><td class="disp">Negative (reverse)</td></tr>
+      <tr><td><code>8</code></td><td class="disp">Invisible</td></tr>
+      <tr><td><code>9</code></td><td class="disp">Crossed-out</td></tr>
+      <tr><td><code>21</code></td><td class="disp">Doubly underlined</td></tr>
+      <tr><td><code>22</code></td><td class="disp">Not intense / not faint</td></tr>
+      <tr><td><code>23</code></td><td class="disp">Not italics</td></tr>
+      <tr><td><code>24</code></td><td class="disp">Not underlined</td></tr>
+      <tr><td><code>25</code></td><td class="disp">Steady (not blinking)</td></tr>
+      <tr><td><code>27</code></td><td class="disp">Positive (not reverse)</td></tr>
+      <tr><td><code>28</code></td><td class="disp">Visible (not invisible)</td></tr>
+      <tr><td><code>29</code></td><td class="disp">Not crossed-out</td></tr>
+      <tr><td><code>30</code>–<code>37</code></td><td class="disp">Foreground
+        <span class="sw" style="background:#000"></span>Black
+        <span class="sw" style="background:#a00"></span>Red
+        <span class="sw" style="background:#0a0"></span>Green
+        <span class="sw" style="background:#a50"></span>Yellow
+        <span class="sw" style="background:#00a"></span>Blue
+        <span class="sw" style="background:#a0a"></span>Magenta
+        <span class="sw" style="background:#0aa"></span>Cyan
+        <span class="sw" style="background:#aaa"></span>White</td></tr>
+      <tr><td><code>38</code></td><td class="disp">Foreground extended — <code>38;5;n</code> (index) or <code>38;2;r;g;b</code> (RGB)</td></tr>
+      <tr><td><code>39</code></td><td class="disp">Foreground default</td></tr>
+      <tr><td><code>40</code>–<code>47</code></td><td class="disp">Background
+        <span class="sw" style="background:#000"></span><span class="sw" style="background:#a00"></span><span class="sw" style="background:#0a0"></span><span class="sw" style="background:#a50"></span><span class="sw" style="background:#00a"></span><span class="sw" style="background:#a0a"></span><span class="sw" style="background:#0aa"></span><span class="sw" style="background:#aaa"></span>Black…White</td></tr>
+      <tr><td><code>48</code></td><td class="disp">Background extended — <code>48;5;n</code> / <code>48;2;r;g;b</code></td></tr>
+      <tr><td><code>49</code></td><td class="disp">Background default</td></tr>
+      <tr><td><code>53</code></td><td class="disp">Overline</td></tr>
+      <tr><td><code>55</code></td><td class="disp">Not overlined</td></tr>
+      <tr><td><code>58</code></td><td class="disp">Underline color — <code>58;5;n</code> / <code>58;2;r;g;b</code></td></tr>
+      <tr><td><code>59</code></td><td class="disp">Underline color default</td></tr>
+      <tr><td><code>90</code>–<code>97</code></td><td class="disp">Bright foreground
+        <span class="sw" style="background:#555"></span><span class="sw" style="background:#f55"></span><span class="sw" style="background:#5f5"></span><span class="sw" style="background:#ff5"></span><span class="sw" style="background:#55f"></span><span class="sw" style="background:#f5f"></span><span class="sw" style="background:#5ff"></span><span class="sw" style="background:#fff"></span>Black…White</td></tr>
+      <tr><td><code>100</code>–<code>107</code></td><td class="disp">Bright background
+        <span class="sw" style="background:#555"></span><span class="sw" style="background:#f55"></span><span class="sw" style="background:#5f5"></span><span class="sw" style="background:#ff5"></span><span class="sw" style="background:#55f"></span><span class="sw" style="background:#f5f"></span><span class="sw" style="background:#5ff"></span><span class="sw" style="background:#fff"></span>Black…White</td></tr>
+    </tbody>
+  </table></div>
+  <div class="callout">
+    <p>Notes from <code>GraphicsOptions</code> + <code>adaptDispatchGraphics.cpp</code>:</p>
+    <ul class="tight" style="margin:6px 0 0">
+      <li><code>2</code> is <code>RGBColorOrFaint</code> and <code>5</code> is <code>BlinkOrXterm256Index</code> — they double as the <em>selectors</em> inside extended color (<code>38</code>/<code>48</code>/<code>58</code>): <code>;2;r;g;b</code> = direct RGB, <code>;5;n</code> = 256-color index.</li>
+      <li>Sub-parameter (<code>:</code>) forms are accepted for SGR (<code>_CanSeqAcceptSubParam</code>), e.g. <code>38:2::r:g:b</code>, <code>38:5:n</code>, and <code>4:x</code> extended underline styles.</li>
+      <li>Extended color applies only if components are ≤ 255 and (for RGB) the color-space ID is 0, matching xterm/VTE.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ===================== §8 MODES ===================== -->
+<section id="modes">
+  <h2><span class="num">§8</span> SM / RM / DECSET / DECRST modes <a class="anchor" href="#modes">#</a></h2>
+  <p class="lead-files"><code>ModeParams</code>. ANSI standard modes use <code>CSI Ps h/l</code>; DEC private modes use <code>CSI ? Ps h/l</code>.</p>
+
+  <h3>ANSI standard <span class="muted nowrap">(CSI Ps h/l)</span> <a class="anchor" href="#modes">#</a></h3>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Ps</th><th>Name</th><th class="disp">Meaning</th></tr></thead>
+    <tbody>
+      <tr><td><code>4</code></td><td class="name">IRM</td><td class="disp">Insert/Replace mode</td></tr>
+      <tr><td><code>20</code></td><td class="name">LNM</td><td class="disp">Line-feed / new-line mode</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>DEC private <span class="muted nowrap">(CSI ? Ps h/l)</span> <a class="anchor" href="#modes">#</a></h3>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Ps</th><th>Name</th><th class="disp">Meaning</th></tr></thead>
+    <tbody>
+      <tr><td><code>1</code></td><td class="name">DECCKM</td><td class="disp">Cursor keys application mode</td></tr>
+      <tr><td><code>2</code></td><td class="name">DECANM</td><td class="disp">ANSI/VT52 mode (reset ⇒ VT52)</td></tr>
+      <tr><td><code>3</code></td><td class="name">DECCOLM</td><td class="disp">132/80 column mode</td></tr>
+      <tr><td><code>5</code></td><td class="name">DECSCNM</td><td class="disp">Screen reverse-video mode</td></tr>
+      <tr><td><code>6</code></td><td class="name">DECOM</td><td class="disp">Origin mode</td></tr>
+      <tr><td><code>7</code></td><td class="name">DECAWM</td><td class="disp">Auto-wrap mode</td></tr>
+      <tr><td><code>8</code></td><td class="name">DECARM</td><td class="disp">Auto-repeat mode</td></tr>
+      <tr><td><code>12</code></td><td class="name">ATT610</td><td class="disp">Start cursor blink</td></tr>
+      <tr><td><code>25</code></td><td class="name">DECTCEM</td><td class="disp">Text cursor enable (show/hide)</td></tr>
+      <tr><td><code>40</code></td><td class="name">XTERM_EnableDECCOLMSupport</td><td class="disp">Allow DECCOLM (col-switch)</td></tr>
+      <tr><td><code>64</code></td><td class="name">DECPCCM</td><td class="disp">Page cursor-coupling mode</td></tr>
+      <tr><td><code>66</code></td><td class="name">DECNKM</td><td class="disp">Numeric keypad mode</td></tr>
+      <tr><td><code>67</code></td><td class="name">DECBKM</td><td class="disp">Backarrow-key mode</td></tr>
+      <tr><td><code>69</code></td><td class="name">DECLRMM</td><td class="disp">Left/right margin mode</td></tr>
+      <tr><td><code>80</code></td><td class="name">DECSDM</td><td class="disp">Sixel display mode</td></tr>
+      <tr><td><code>117</code></td><td class="name">DECECM</td><td class="disp">Erase color mode</td></tr>
+      <tr><td><code>1000</code></td><td class="name">VT200_MOUSE</td><td class="disp">Send mouse on press &amp; release</td></tr>
+      <tr><td><code>1002</code></td><td class="name">BUTTON_EVENT_MOUSE</td><td class="disp">Cell-motion mouse tracking</td></tr>
+      <tr><td><code>1003</code></td><td class="name">ANY_EVENT_MOUSE</td><td class="disp">All-motion mouse tracking</td></tr>
+      <tr><td><code>1004</code></td><td class="name">FOCUS_EVENT</td><td class="disp">Report focus in/out</td></tr>
+      <tr><td><code>1005</code></td><td class="name">UTF8_EXTENDED</td><td class="disp">UTF-8 mouse encoding</td></tr>
+      <tr><td><code>1006</code></td><td class="name">SGR_EXTENDED</td><td class="disp">SGR mouse encoding</td></tr>
+      <tr><td><code>1007</code></td><td class="name">ALTERNATE_SCROLL</td><td class="disp">Alternate scroll mode</td></tr>
+      <tr><td><code>1049</code></td><td class="name">ASB</td><td class="disp">Alternate screen buffer (save + clear)</td></tr>
+      <tr><td><code>2004</code></td><td class="name">XTERM_BracketedPaste</td><td class="disp">Bracketed-paste mode</td></tr>
+      <tr><td><code>2026</code></td><td class="name">SO_SynchronizedOutput</td><td class="disp">Synchronized output</td></tr>
+      <tr><td><code>2027</code></td><td class="name">GCM_GraphemeClusterMode</td><td class="disp">Grapheme cluster mode</td></tr>
+      <tr><td><code>9001</code></td><td class="name">W32IM</td><td class="disp">Win32 input mode</td></tr>
+    </tbody>
+  </table></div>
+  <p class="muted"><code>ModeParams</code> values are internally normalized (<code>DECPrivateMode(n)</code> / <code>ANSIStandardMode(n)</code>) so private and standard numbers don't collide; the table shows the on-the-wire <code>Ps</code>.</p>
+</section>
+
+<!-- ===================== §9 REPORTS ===================== -->
+<section id="reports">
+  <h2><span class="num">§9</span> Reports — what the terminal sends <em>back</em> <a class="anchor" href="#reports">#</a></h2>
+  <p>Everything in §1–§8 is <strong>host → terminal</strong> (the app writing to the screen). This section is the <strong>opposite direction</strong>: the bytes the terminal writes onto the application's <strong>input stream</strong> in reply to a query. These are produced in the adapter (<code>adaptDispatch.cpp</code>), not the parser, by three helpers — so the wrapping is uniform:</p>
+<pre><code>_ReturnCsiResponse(body)  ->  CSI  body            // CSI = ESC[  or  0x9B
+_ReturnDcsResponse(body)  ->  DCS  body  ST         // DCS = ESCP  or  0x90 ;  ST = ESC\ or 0x9C
+_ReturnOscResponse(body)  ->  OSC  body  ST         // OSC = ESC]  or  0x9D ;  ST = ESC\ or 0x9C</code></pre>
+  <div class="callout">
+    <p><strong>8-bit nuance (verified).</strong> The introducer is chosen at send time from <code>TerminalInput::Mode::SendC1</code>. When the app has enabled 8-bit C1 transmission (via <code>S8C1T</code>, <code>ESC SP G</code>), responses use the <strong>single-byte C1</strong> forms (<code>CSI</code>=<code>0x9B</code>, <code>DCS</code>=<code>0x90</code>, <code>OSC</code>=<code>0x9D</code>, <code>ST</code>=<code>0x9C</code>); otherwise the <strong>7-bit</strong> forms (<code>ESC [</code>, <code>ESC P</code>, <code>ESC ]</code>, <code>ESC \</code>). The bodies below are shown <strong>without</strong> the introducer/terminator. All numeric coordinates are <strong>1-based</strong> (VT origin 1,1).</p>
+  </div>
+  <div class="callout warn">
+    <p>Under ConPTY, some of these are suppressed or forwarded rather than answered locally (e.g. the Kitty-keyboard query returns early when <code>IsConPTY()</code>), because the real terminal downstream is the authority.</p>
+  </div>
+
+  <h3>9a · Device attributes &amp; identification <a class="anchor" href="#reports">#</a></h3>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Query (host sends)</th><th class="disp">Response body</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr>
+        <td class="name">DA1 <span class="seq"><b>CSI</b> c</span> / <span class="seq"><b>CSI</b> 0 c</span><br><span class="muted">(also <code>ESC Z</code> DECID)</span></td>
+        <td class="disp"><span class="resp">CSI ?61;4;6;7;14;21;22;23;24;28;32;42c</span></td>
+        <td>Service class. <strong><code>;52</code> is appended</strong> (→ <code>…42;52c</code>) <em>only when</em> the <code>ClipboardWrite</code> optional feature is enabled. <code>61</code>=conformance level 1; the rest are feature IDs (4 Sixel, 6 selective-erase, 7 soft-fonts, 14 8-bit, 21 horiz-scroll, 22 color, 23 Greek, 24 Turkish, 28 rectangular-area, 32 macros, 42 ISO-Latin-2, 52 clipboard).</td>
+      </tr>
+      <tr>
+        <td class="name">DA2 <span class="seq"><b>CSI</b> &gt; c</span> / <span class="seq"><b>CSI</b> &gt; 0 c</span></td>
+        <td class="disp"><span class="resp">CSI &gt;0;10;1c</span></td>
+        <td>Terminal type 0 (VT100), firmware "10" (=v1.0), hardware option 1 (PC keyboard). Hard-coded.</td>
+      </tr>
+      <tr>
+        <td class="name">DA3 <span class="seq"><b>CSI</b> = c</span> / <span class="seq"><b>CSI</b> = 0 c</span></td>
+        <td class="disp"><span class="resp">DCS !|00000000 ST</span></td>
+        <td>Unit ID, all-zeros (DECRPTUI form).</td>
+      </tr>
+      <tr>
+        <td class="name">VT52 identify <span class="seq"><b>ESC</b> Z</span> <span class="muted">(VT52 mode)</span></td>
+        <td class="disp"><span class="resp">ESC / Z</span></td>
+        <td>Sent raw (not through the CSI/DCS helpers); identifies an emulated VT52.</td>
+      </tr>
+      <tr>
+        <td class="name">DECREQTPARM <span class="seq"><b>CSI</b> Ps x</span></td>
+        <td class="disp"><span class="resp">CSI 2;1;1;128;128;1;0x</span> <span class="muted">(Ps=0)</span><br><span class="resp">CSI 3;1;1;128;128;1;0x</span> <span class="muted">(Ps=1)</span></td>
+        <td>Hard-coded 38400-baud / no-parity / 8-bit report, matching XTerm. Ps=0 "unsolicited" → leading 2; Ps=1 "solicited" → leading 3.</td>
+      </tr>
+    </tbody>
+  </table></div>
+
+  <h3>9b · Device Status Report — <span class="muted nowrap">CSI Ps n / CSI ? Ps n</span> <a class="anchor" href="#reports">#</a></h3>
+  <p class="muted">The plain (non-<code>?</code>) cursor report body is <code>Pl;Pc R</code>; everything else is <code>&lt;body&gt; n</code>.</p>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Request</th><th class="disp">Response body</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td class="name"><span class="seq"><b>CSI</b> 5 n</span> OperatingStatus</td><td class="disp"><span class="resp">CSI 0n</span></td><td>Terminal OK ("good condition").</td></tr>
+      <tr><td class="name"><span class="seq"><b>CSI</b> 6 n</span> CPR</td><td class="disp"><span class="resp">CSI Pl;Pc R</span></td><td>Cursor row;col. Adjusted for origin mode if DECOM set.</td></tr>
+      <tr><td class="name"><span class="seq"><b>CSI</b> ? 6 n</span> DECXCPR</td><td class="disp"><span class="resp">CSI ?Pl;Pc;Pp R</span></td><td>Extended: also page number <code>Pp</code>.</td></tr>
+      <tr><td class="name"><span class="seq"><b>CSI</b> ? 15 n</span> PrinterStatus</td><td class="disp"><span class="resp">CSI ?13n</span></td><td>No printer connected.</td></tr>
+      <tr><td class="name"><span class="seq"><b>CSI</b> ? 25 n</span> UserDefinedKeys</td><td class="disp"><span class="resp">CSI ?23n</span></td><td>UDKs not supported.</td></tr>
+      <tr><td class="name"><span class="seq"><b>CSI</b> ? 26 n</span> KeyboardStatus</td><td class="disp"><span class="resp">CSI ?27;0;0;5n</span></td><td>Unknown PC keyboard, lang 0, ready, dialect 5 (NA).</td></tr>
+      <tr><td class="name"><span class="seq"><b>CSI</b> ? 55 n</span> LocatorStatus</td><td class="disp"><span class="resp">CSI ?53n</span></td><td>No locator (mouse-as-locator) connected.</td></tr>
+      <tr><td class="name"><span class="seq"><b>CSI</b> ? 56 n</span> LocatorIdentity</td><td class="disp"><span class="resp">CSI ?57;0n</span></td><td>Locator type unknown.</td></tr>
+      <tr><td class="name"><span class="seq"><b>CSI</b> ? 62 n</span> DECMSR</td><td class="disp"><span class="resp">CSI Pb*{</span></td><td>Free macro space, in units of <strong>16 bytes</strong> (<code>space/16</code>).</td></tr>
+      <tr><td class="name"><span class="seq"><b>CSI</b> ? 63 ; Pid n</span> DECCKSR</td><td class="disp"><span class="resp">DCS Pid!~XXXX ST</span></td><td><code>Pid</code> echoes the request label (default 0); <code>XXXX</code> is a 4-hex-digit checksum of stored macros.</td></tr>
+      <tr><td class="name"><span class="seq"><b>CSI</b> ? 75 n</span> DataIntegrity</td><td class="disp"><span class="resp">CSI ?70n</span></td><td>Terminal ready, no errors.</td></tr>
+      <tr><td class="name"><span class="seq"><b>CSI</b> ? 85 n</span> MultipleSessionStatus</td><td class="disp"><span class="resp">CSI ?83n</span></td><td>Multiple sessions not supported.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>9c · Mode report — DECRQM → DECRPM <a class="anchor" href="#reports">#</a></h3>
+  <p><code>CSI Ps $ p</code> (or <code>CSI ? Ps $ p</code> for private) replies <span class="resp">CSI [?]Ps;Ps_state $ y</span>, where the <code>?</code> is present iff the mode is a DEC private mode, and <code>Ps_state</code> is:</p>
+  <p class="muted"><code>0</code> not recognized · <code>1</code> set · <code>2</code> reset · <code>3</code> permanently set · <code>4</code> permanently reset.</p>
+  <p>The terminal queries live state for every mode listed in §8 (e.g. <code>CSI ? 25 $ p</code> → <span class="resp">CSI ?25;1$y</span> when the cursor is visible). Grapheme-cluster mode (<code>2027</code>) reports the <strong>permanent</strong> variants (3/4).</p>
+
+  <h3>9d · DECRQSS — request a setting's value <span class="muted nowrap">(DCS $ q &lt;id&gt; ST)</span> <a class="anchor" href="#reports">#</a></h3>
+  <p>The app sends <code>DCS $ q</code> followed by the <em>final/intermediate bytes of the control it's asking about</em>, then <code>ST</code>. A <strong>valid</strong> reply is <span class="resp">DCS 1 $ r &lt;value&gt;&lt;id&gt; ST</span>; an <strong>invalid/unsupported</strong> request replies <span class="resp">DCS 0 $ r ST</span>.</p>
+  <div class="callout warn"><p><strong>Source caveat</strong> (from the code comment): WT uses <code>1</code>=valid / <code>0</code>=invalid, per DEC STD 070 — the <strong>opposite</strong> of what most DEC manuals state.</p></div>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Requested (<code>DCS $ q …</code>)</th><th class="disp">Reply body (between <code>DCS</code> … <code>ST</code>)</th><th>Reports</th></tr></thead>
+    <tbody>
+      <tr><td class="name"><code>m</code> (SGR)</td><td class="disp"><span class="resp">1$r0[;…]m</span></td><td>Current SGR: starts at <code>0</code>, appends set attributes (<code>;1</code>,<code>;2</code>,<code>;3</code>,<code>;4</code>, <code>;4:3/4:4/4:5</code> underline styles, <code>;5</code>,<code>;7</code>,<code>;8</code>,<code>;9</code>,<code>;21</code>,<code>;53</code>) and color params (<code>38</code>/<code>48</code>/<code>58</code> families, <code>:5:n</code> indexed, <code>:2::r:g:b</code> RGB).</td></tr>
+      <tr><td class="name"><code>r</code> (DECSTBM)</td><td class="disp"><span class="resp">1$rPt;Pb r</span></td><td>Top/bottom margins (1-based).</td></tr>
+      <tr><td class="name"><code>s</code> (DECSLRM)</td><td class="disp"><span class="resp">1$rPl;Pr s</span></td><td>Left/right margins (1-based).</td></tr>
+      <tr><td class="name"><code>SP q</code> (DECSCUSR)</td><td class="disp"><span class="resp">1$rPs q</span></td><td>Cursor style 1–6; <code>0</code> if it's the user's custom default.</td></tr>
+      <tr><td class="name"><code>" q</code> (DECSCA)</td><td class="disp"><span class="resp">1$r1"q</span> / <span class="resp">1$r0"q</span></td><td>Char protection on/off.</td></tr>
+      <tr><td class="name"><code>* x</code> (DECSACE)</td><td class="disp"><span class="resp">1$r2*x</span> (rect) / <span class="resp">1$r1*x</span> (stream)</td><td>Change-extent.</td></tr>
+      <tr><td class="name"><code>, |</code> (DECAC)</td><td class="disp"><span class="resp">1$rPitem;Pfg;Pbg,|</span></td><td>Assigned colors for item 1 (text) or 2 (frame); unknown item → <span class="resp">0$r</span>.</td></tr>
+      <tr><td class="name">anything else</td><td class="disp"><span class="resp">0$r</span></td><td>Unsupported.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>9e · Presentation-state reports — DECRQPSR <span class="muted nowrap">(CSI Ps $ w)</span> <a class="anchor" href="#reports">#</a></h3>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Request</th><th class="disp">Reply</th><th>Reports</th></tr></thead>
+    <tbody>
+      <tr><td class="name"><span class="seq"><b>CSI</b> 1 $ w</span> DECCIR</td><td class="disp"><span class="resp">DCS 1$u …data… ST</span></td><td><strong>Cursor Information Report</strong>: <code>Pr;Pc;Pp;Patt;Pchar;Pflags;Pgl;Pgr;Psize;&lt;charset designations&gt;</code>. Rendition/flags/charset bits are packed as printable chars offset from <code>@</code> (e.g. rendition bit1 bold, 2 underline, 4 blink, 8 reverse, 16 invisible; flags bit1 origin-mode, 2 SS2-pending, 4 SS3-pending, 8 delayed-EOL-wrap).</td></tr>
+      <tr><td class="name"><span class="seq"><b>CSI</b> 2 $ w</span> DECTABSR</td><td class="disp"><span class="resp">DCS 2$u c1/c2/… ST</span></td><td><strong>Tabulation Stop Report</strong>: <code>/</code>-separated 1-based columns, up to current width.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>9f · Terminal-state report — DECRQTSR <span class="muted nowrap">(CSI Ps ; Po $ u)</span> <a class="anchor" href="#reports">#</a></h3>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Request</th><th class="disp">Reply</th><th>Reports</th></tr></thead>
+    <tbody>
+      <tr><td class="name"><span class="seq"><b>CSI</b> 2 ; Pm $ u</span> DECCTR</td><td class="disp"><span class="resp">DCS 2$s …data… ST</span></td><td><strong>Color Table Report</strong>: <code>/</code>-separated entries <code>Pc;Pm;Px;Py;Pz</code> for each defined palette index. <code>Pm</code> is the color model: <strong>1 = HLS, 2 = RGB</strong> (the <code>Pm</code> request option chooses which).</td></tr>
+      <tr><td class="name"><span class="seq"><b>CSI</b> 1 ; … $ u</span> full state</td><td class="disp"><span class="muted">(no reply)</span></td><td><code>TerminalStateReport</code> format is recognized but <strong>not implemented</strong> as a request — only <code>ColorTableReport</code> produces output.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>9g · Other CSI/DCS reports <a class="anchor" href="#reports">#</a></h3>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Request</th><th class="disp">Reply</th><th>Reports</th></tr></thead>
+    <tbody>
+      <tr><td class="name">DECRQDE <span class="seq"><b>CSI</b> " v</span></td><td class="disp"><span class="resp">CSI Ph;Pw;Pml;Pmt;Pp " w</span> (DECRPDE)</td><td>Displayed extent: visible height, width, left-pan+1, top-pan+1, page number.</td></tr>
+      <tr><td class="name">DECRQCRA <span class="seq"><b>CSI</b> Pid;Pp;Pt;Pl;Pb;Pr * y</span></td><td class="disp"><span class="resp">DCS Pid!~XXXX ST</span></td><td>Rectangular-area checksum: echoes <code>Pid</code>, then a 4-hex-digit checksum. The reply is <strong>always sent</strong>, but <code>XXXX</code> is <code>0000</code> unless the <code>ChecksumReport</code> optional feature (and compile-time <code>Feature_VtChecksumReport</code>) is enabled and <code>Pp</code>≠0. DEC checksum algorithm (negated sum of char + packed attribute/color bits).</td></tr>
+      <tr><td class="name">XTWINOPS size <span class="seq"><b>CSI</b> 14 t</span> / <span class="seq"><b>CSI</b> 16 t</span> / <span class="seq"><b>CSI</b> 18 t</span></td><td class="disp"><span class="resp">CSI Pt;Ph;Pw t</span></td><td>Size report; leading <code>Pt</code> = request type − 10 (so 4/6/8). <code>14</code>=text area in (virtual) pixels, <code>16</code>=cell size in pixels, <code>18</code>=text area in characters.</td></tr>
+      <tr><td class="name">Kitty query <span class="seq"><b>CSI</b> ? u</span></td><td class="disp"><span class="resp">CSI ?flags u</span></td><td>Current Kitty progressive-enhancement flags. <strong>Returns early (no reply) under ConPTY.</strong></td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>9h · OSC color &amp; clipboard queries <a class="anchor" href="#reports">#</a></h3>
+  <p class="muted">A <code>?</code> in place of a color spec asks the terminal to report the current value, as 16-bit-per-channel <code>rgb:RRRR/GGGG/BBBB</code> (each 8-bit channel scaled <code>×0x0101</code>).</p>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Request</th><th class="disp">Reply body</th><th>Reports</th></tr></thead>
+    <tbody>
+      <tr><td class="name"><span class="seq"><b>OSC</b> 4 ; Pi ; ? ST</span></td><td class="disp"><span class="resp">OSC 4;Pi;rgb:RRRR/GGGG/BBBB ST</span></td><td>Palette entry <code>Pi</code>. No reply if that entry is unset (<code>INVALID_COLOR</code>).</td></tr>
+      <tr><td class="name"><span class="seq"><b>OSC</b> 10/11/12/17 ; ? ST</span></td><td class="disp"><span class="resp">OSC Ps;rgb:RRRR/GGGG/BBBB ST</span></td><td>Dynamic resource (fg/bg/cursor/highlight). <code>Ps</code> echoes the request number. No reply if unset.</td></tr>
+      <tr><td class="name"><span class="seq"><b>OSC</b> 52 ; Pc ; ? ST</span></td><td class="disp"><span class="muted">(no reply)</span></td><td>Clipboard <strong>read-back is parsed but intentionally not answered</strong> — the dispatch writes the clipboard only on a set (<code>!queryClipboard</code>); queries are dropped (privacy).</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>9i · Answerback &amp; VT52 <a class="anchor" href="#reports">#</a></h3>
+  <ul class="tight">
+    <li><strong>ENQ (<code>0x05</code>)</strong> → <code>EnquireAnswerback()</code> → <code>_api.ReturnAnswerback()</code>: sends the user-configured answerback string (content is host/settings-defined, not hard-coded here).</li>
+    <li>VT52-mode identify (<code>ESC Z</code>) is covered in 9a; VT52 cursor/erase replies otherwise reuse the ANSI handlers.</li>
+  </ul>
+</section>
+
+<!-- ===================== NOTES ===================== -->
+<section id="notes">
+  <h2><span class="num">§A</span> Verification notes <a class="anchor" href="#notes">#</a></h2>
+  <ul class="tight">
+    <li><strong>Verified directly from source:</strong> all byte sequences, the dispatch wiring (which handler each maps to), parameter signatures, the <code>VTParameter</code> default rules, and the value enums in §7/§8 (plus EraseType, TabClearType, TabSetType, CursorStyle, StatusType, WindowManipulationType, ColorItem, ChangeExtent, ModeResponses).</li>
+    <li><code>DECSCPP</code> (<code>CSI $ |</code>) and OSC <code>3</code> (SetWindowProperty) are recognized but unimplemented (fall through / no-op).</li>
+    <li>C1 controls (0x80–0x9F) reach the same dispatchers as their 7-bit <code>ESC</code> equivalents when 8-bit C1 acceptance is enabled (<code>DECAC1</code> / <code>S8C1T</code>).</li>
+    <li>Format selectors for the state-report family: <code>ReportFormat</code> (DECRQTSR/DECRSTS) <code>1</code> TerminalStateReport, <code>2</code> ColorTableReport; <code>PresentationReportFormat</code> (DECRQPSR/DECRSPS) <code>1</code> CursorInformationReport, <code>2</code> TabulationStopReport. <code>LineFeedType</code>: WithReturn, WithoutReturn, DependsOnMode. <code>CharsetSize</code>: <code>0</code> = 94-char, <code>1</code> = 96-char.</li>
+    <li><strong>Scope:</strong> this reference documents sequences handled by the <code>AdaptDispatch</code> <em>output</em> adapter. Keyboard/mouse <em>input</em> encoding (what arrow keys or SGR mouse events send) lives in <code>TerminalInput</code> / <code>InputStateMachineEngine</code> and is not covered here.</li>
+  </ul>
+
+  <footer>
+    <p>Compiled from <a href="https://github.com/microsoft/terminal">microsoft/terminal</a> <code>main</code>. Generated as a single self-contained HTML file — no external dependencies, works offline. The code is the source of truth; if this doc and the source ever disagree, trust the source and file a fix.</p>
+  </footer>
+</section>
+
+</main>
+</div>
+
+<div class="no-results" id="noResults">No sequences match your filter.</div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ---------- theme ---------- */
+  var root = document.documentElement;
+  var saved = null;
+  try { saved = localStorage.getItem("wt-theme"); } catch(e){}
+  if (saved) root.setAttribute("data-theme", saved);
+  document.getElementById("themeBtn").addEventListener("click", function(){
+    var next = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
+    root.setAttribute("data-theme", next);
+    try { localStorage.setItem("wt-theme", next); } catch(e){}
+  });
+
+  /* ---------- click-to-copy byte chips ---------- */
+  function literalize(text){
+    // expand readable tokens to literal bytes for copying
+    return text
+      .replace(/\bESC\b/g, "\\x1b")
+      .replace(/\bCSI\b/g, "\\x1b[")
+      .replace(/\bDCS\b/g, "\\x1bP")
+      .replace(/\bOSC\b/g, "\\x1b]")
+      .replace(/\bST\b/g,  "\\x1b\\")
+      .replace(/\bSP\b/g,  " ")
+      .replace(/\s+/g, " ").trim();
+  }
+  document.addEventListener("click", function(ev){
+    var el = ev.target.closest(".seq");
+    if (!el || el.dataset.noclip) return;
+    var raw = el.textContent;
+    var out = literalize(raw);
+    var done = function(){
+      var old = el.getAttribute("title") || "";
+      el.classList.add("copied");
+      el.setAttribute("title", "Copied: " + out);
+      setTimeout(function(){ el.classList.remove("copied"); el.setAttribute("title", old); }, 900);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(out).then(done, done);
+    } else {
+      try {
+        var ta = document.createElement("textarea");
+        ta.value = out; document.body.appendChild(ta); ta.select();
+        document.execCommand("copy"); document.body.removeChild(ta); done();
+      } catch(e){}
+    }
+  });
+
+  /* ---------- scroll-spy ---------- */
+  var tocLinks = Array.prototype.slice.call(document.querySelectorAll("#toc a"));
+  var byId = {};
+  tocLinks.forEach(function(a){ byId[a.getAttribute("href").slice(1)] = a; });
+  var sections = Array.prototype.slice.call(document.querySelectorAll("main section"));
+  var spy = new IntersectionObserver(function(entries){
+    entries.forEach(function(e){
+      if (e.isIntersecting){
+        var a = byId[e.target.id];
+        if (!a) return;
+        tocLinks.forEach(function(x){ x.classList.remove("active"); });
+        a.classList.add("active");
+      }
+    });
+  }, { rootMargin: "-10% 0px -80% 0px", threshold: 0 });
+  sections.forEach(function(s){ spy.observe(s); });
+
+  /* ---------- live filter ---------- */
+  var input = document.getElementById("filter");
+  var noRes = document.getElementById("noResults");
+  var note  = document.getElementById("filterNote");
+  var allSections = sections;
+  // Cache per-row text for speed
+  var tables = Array.prototype.slice.call(document.querySelectorAll("main table"));
+  tables.forEach(function(t){
+    Array.prototype.slice.call(t.tBodies[0].rows).forEach(function(r){
+      r._txt = r.textContent.toLowerCase();
+    });
+  });
+
+  function clearMarks(){
+    Array.prototype.slice.call(document.querySelectorAll("main mark")).forEach(function(m){
+      var p = m.parentNode; p.replaceChild(document.createTextNode(m.textContent), m); p.normalize();
+    });
+  }
+
+  function applyFilter(q){
+    q = q.trim().toLowerCase();
+    clearMarks();
+    if (!q){
+      tables.forEach(function(t){
+        Array.prototype.slice.call(t.tBodies[0].rows).forEach(function(r){ r.style.display=""; });
+      });
+      allSections.forEach(function(s){ s.style.display=""; });
+      noRes.style.display="none";
+      note.textContent = "Filtering matches sequence names, byte patterns, and descriptions across every table.";
+      return;
+    }
+    var terms = q.split(/\s+/);
+    var totalHits = 0;
+    // Each section: count visible rows; sections without tables stay visible only if their text matches.
+    allSections.forEach(function(sec){
+      var secTables = sec.querySelectorAll("table");
+      var sectionHits = 0;
+      if (secTables.length){
+        Array.prototype.forEach.call(secTables, function(t){
+          Array.prototype.slice.call(t.tBodies[0].rows).forEach(function(r){
+            var ok = terms.every(function(term){ return r._txt.indexOf(term) !== -1; });
+            r.style.display = ok ? "" : "none";
+            if (ok){ sectionHits++; totalHits++; }
+          });
+        });
+        // show section iff it has matching rows OR its heading text matches
+        var headMatch = terms.every(function(term){ return sec.querySelector("h2").textContent.toLowerCase().indexOf(term)!==-1; });
+        sec.style.display = (sectionHits>0 || headMatch) ? "" : "none";
+      } else {
+        var txt = sec.textContent.toLowerCase();
+        var ok = terms.every(function(term){ return txt.indexOf(term)!==-1; });
+        sec.style.display = ok ? "" : "none";
+        if (ok) totalHits++;
+      }
+    });
+    noRes.style.display = totalHits ? "none" : "block";
+    note.textContent = totalHits ? (totalHits + " matching row(s)/section(s).") : "";
+  }
+
+  var t;
+  input.addEventListener("input", function(){
+    clearTimeout(t);
+    t = setTimeout(function(){ applyFilter(input.value); }, 90);
+  });
+  document.getElementById("clearBtn").addEventListener("click", function(){
+    input.value=""; applyFilter(""); input.focus();
+  });
+  // keyboard: "/" focuses search
+  document.addEventListener("keydown", function(e){
+    if (e.key === "/" && document.activeElement !== input){
+      e.preventDefault(); input.focus();
+    } else if (e.key === "Escape" && document.activeElement === input){
+      input.value=""; applyFilter(""); input.blur();
+    }
+  });
+})();
+</script>
+</body>
+</html>
