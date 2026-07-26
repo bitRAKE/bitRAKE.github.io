@@ -1,0 +1,9 @@
+# Python maintenance helpers
+__pycache__/
+*.py[cod]
+
+# Common local OS/editor noise
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
